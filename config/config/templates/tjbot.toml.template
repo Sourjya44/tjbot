@@ -1,0 +1,69 @@
+# TJBot Configuration File
+# This file overrides defaults from node-tjbotlib
+
+[log]
+level = 'info'  # error | warning | info | verbose | debug
+
+[hardware]
+speaker = false
+microphone = false
+led_neopixel = false
+led_common_anode = false
+servo = false
+camera = false
+
+[listen]
+device = ''  # e.g., 'plughw:2,0'
+microphoneRate = 44100
+microphoneChannels = 2
+
+[listen.backend]
+type = 'local'  # local | ibm-watson-stt | google-cloud-stt | azure-stt
+
+[listen.backend.local]
+model = 'sherpa-onnx-whisper-base.en'
+
+[listen.backend.local.vad]
+enabled = true
+model = 'silero-vad'
+
+[speak]
+device = ''  # e.g., 'plughw:0,0'
+
+[speak.backend]
+type = 'local'  # local | ibm-watson-tts | google-cloud-tts | azure-tts
+
+[speak.backend.local]
+model = 'vits-piper-en_US-ryan-medium'
+
+[see]
+cameraResolution = [1920, 1080]
+verticalFlip = false
+horizontalFlip = false
+
+[see.backend]
+type = 'local'  # local | google-cloud-vision | azure-vision
+
+[see.backend.local]
+objectDetectionModel = 'ssd-mobilenet-v2'
+imageClassificationModel = 'mobilenetv3'
+faceDetectionModel = 'scrfd-2.5g'
+objectDetectionConfidence = 0.8
+imageClassificationConfidence = 0.8
+faceDetectionConfidence = 0.5
+
+[shine.neopixel]
+gpioPin = 21  # 10, 12, 18, or 21 for RPi 3/4; only 10 for RPi 5
+spiInterface = "/dev/spidev0.0"  # for RPi 5
+
+[shine.commonanode]
+redPin = 19
+greenPin = 13
+blue Pin = 12
+
+[wave]
+gpioChip = 0
+servoPin = 18  # PWM-capable pin: 12, 13, 18, or 19
+
+[recipe]
+# Add your recipe-specific configuration here

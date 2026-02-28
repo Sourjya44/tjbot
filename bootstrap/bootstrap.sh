@@ -334,33 +334,69 @@ echo "-------------------------------------------------------------------"
 echo ""
 read -p "Press enter to continue" nonce </dev/tty
 
-#——instructions for watson credentials
+#----install and run tjbot config
 echo ""
-echo "Notice about IBM Watson services: Before running any recipes, you will"
-echo "need to obtain credentials for the IBM Watson services used by those"
-echo "recipes. You can obtain these credentials as follows:"
+echo "-------------------------------------------------------------------"
+echo "Setting up TJBot Configuration Tool..."
+echo "-------------------------------------------------------------------"
 echo ""
-echo "1. Sign up for a free IBM Cloud account at https://cloud.ibm.com if you"
-echo "do not have one already."
-echo "2. Log in to IBM Cloud and create an instance of the Watson services you"
-echo "plan to use. The Watson services are listed on the IBM Cloud dashboard,"
-echo "under \"Catalog\". The Watson services used by TJBot are Assistant,"
-echo "Language Translator, Speech to Text, Text to Speech, Tone Analyzer, and"
-echo "Visual Recognition."
-echo "3. For each service, click the \"Create\" button on the bottom right of"
-echo "the page to create an instance of the service."
-echo "4. Click the \"Download\" link in the \"Credentials\" section of the"
-echo "page."
-echo "5. Save the \"ibm-credentials.env\" file(s) in the folder of the recipe"
-echo "you wish to use."
-echo ""
-echo "Note: If you have credentials from multiple services, combine their"
-echo "contents into a single file."
-echo ""
-echo "For more detailed guides on setting up service credentials, please see"
-echo "the README file of each recipe."
-echo ""
-read -p "Press enter to continue" nonce </dev/tty
+
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo "✗ uv is not installed"
+    echo ""
+    echo "tjbot's config tool requires 'uv' for Python dependency management."
+    echo "Install uv with one of these methods:"
+    echo ""
+    echo "  # Recommended (standalone installer):"
+    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo ""
+    echo "  # Alternative (using pip):"
+    echo "  pip3 install uv --user"
+    echo ""
+    echo "After installing uv, you can run config anytime with:"
+    echo "  ./tjbot config"
+    echo ""
+else
+    # uv is installed, set up config
+    cd ../config
+    echo "Setting up Python environment with uv..."
+
+    # Run uv sync as the pi user
+    uv sync --quiet
+
+    if [ $? -eq 0 ]; then
+        echo "✓ Environment ready"
+        echo ""
+        echo "-------------------------------------------------------------------"
+        echo "TJBot Configuration Wizard"
+        echo "-------------------------------------------------------------------"
+        echo ""
+        echo "The TJBot configuration wizard will help you:"
+        echo "  • Configure your TJBot hardware (LED, servo, camera, etc.)"
+        echo "  • Set up local or cloud-based AI services (Speech, Vision, etc.)"
+        echo ""
+        read -p "Run configuration wizard now? [Y/n] " choice </dev/tty
+        case "$choice" in
+            "" | "y" | "Y")
+                echo ""
+                uv run config init
+                echo ""
+                ;;
+            *)
+                echo ""
+                echo "You can run the configuration wizard anytime with:"
+                echo "  ./tjbot config"
+                echo ""
+                ;;
+        esac
+    else
+        echo "✗ Failed to set up config environment"
+        echo "  You can try manually with:"
+        echo "  cd config && uv sync"
+        echo ""
+    fi
+fi
 
 #----reboot
 echo ""
