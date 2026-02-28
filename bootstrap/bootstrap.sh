@@ -224,16 +224,28 @@ esac
 #----clone tjbot
 echo ""
 echo "We are ready to clone the TJBot project."
-read -p "Where should we clone it to? (default: /home/pi/Desktop/tjbot): " TJBOT_DIR </dev/tty
-if [ -z $TJBOT_DIR ]; then
-    TJBOT_DIR='/home/pi/Desktop/tjbot'
+TARGET_USER=${SUDO_USER:-$USER}
+TARGET_HOME=$(eval echo "~$TARGET_USER")
+DEFAULT_TJBOT_DIR="$TARGET_HOME/.tjbot"
+read -p "Where should we clone it to? (default: ~/.tjbot): " TJBOT_DIR </dev/tty
+if [ -z "$TJBOT_DIR" ]; then
+    TJBOT_DIR="$DEFAULT_TJBOT_DIR"
 fi
 
 if [ ! -d $TJBOT_DIR ]; then
     echo "Cloning TJBot project to $TJBOT_DIR"
-    sudo -u $SUDO_USER git clone https://github.com/ibmtjbot/tjbot.git $TJBOT_DIR
+    sudo -u "$TARGET_USER" git clone https://github.com/ibmtjbot/tjbot.git "$TJBOT_DIR"
 else
     echo "TJBot project already exists in $TJBOT_DIR, leaving it alone"
+fi
+
+#----add tjbot bin to user path
+PROFILE_FILE="$TARGET_HOME/.profile"
+if ! grep -Fq "$TJBOT_DIR/bin" "$PROFILE_FILE" 2>/dev/null; then
+    echo "Adding $TJBOT_DIR/bin to $TARGET_USER PATH in $PROFILE_FILE"
+    touch "$PROFILE_FILE"
+    printf '\n# Added by TJBot bootstrap\nexport PATH="$PATH:%s/bin"\n' "$TJBOT_DIR" >> "$PROFILE_FILE"
+    chown "$TARGET_USER":"$TARGET_USER" "$PROFILE_FILE" 2>/dev/null || true
 fi
 
 #----blacklist audio kernel modules

@@ -4,6 +4,7 @@
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TJBOT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Colors for output
 RED='\033[0;31m'
@@ -29,12 +30,12 @@ list_recipes() {
     echo -e "${BLUE}Available TJBot Recipes:${NC}"
     echo ""
 
-    if [ ! -d "$SCRIPT_DIR/recipes" ]; then
+    if [ ! -d "$TJBOT_ROOT/recipes" ]; then
         echo -e "${RED}Error: recipes directory not found${NC}"
         exit 1
     fi
 
-    for recipe_dir in "$SCRIPT_DIR/recipes"/*; do
+    for recipe_dir in "$TJBOT_ROOT/recipes"/*; do
         if [ -d "$recipe_dir" ]; then
             recipe_name=$(basename "$recipe_dir")
 
@@ -57,7 +58,7 @@ list_recipes() {
 # Function to run a recipe
 run_recipe() {
     local recipe_name="$1"
-    local recipe_dir="$SCRIPT_DIR/recipes/$recipe_name"
+    local recipe_dir="$TJBOT_ROOT/recipes/$recipe_name"
 
     if [ ! -d "$recipe_dir" ]; then
         echo -e "${RED}Error: Recipe '$recipe_name' not found${NC}"
@@ -112,13 +113,13 @@ run_recipe() {
 case "$1" in
     bootstrap)
         echo -e "${GREEN}Running TJBot bootstrap...${NC}"
-        cd "$SCRIPT_DIR/bootstrap" || exit 1
-        exec $SHELL bootstrap.sh
+        cd "$TJBOT_ROOT/bootstrap" || exit 1
+        exec "$SHELL" ./bootstrap.sh
         ;;
 
     config)
         shift
-        cd "$SCRIPT_DIR/config" || exit 1
+        cd "$TJBOT_ROOT/config" || exit 1
 
         # Check if uv is installed
         if ! command -v uv &> /dev/null; then
