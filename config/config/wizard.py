@@ -26,7 +26,7 @@ class InitWizard:
 
     def __init__(self):
         self.config = {}
-        self.system_info = None
+        self.system_info = dict()
         self.config_dir = Path.home() / '.tjbot'
         self.config_file = self.config_dir / 'tjbot.toml'
         self.detector = DeviceDetection()
@@ -108,8 +108,8 @@ class InitWizard:
         hardware_choices = [
             ('Speaker (audio output)', 'speaker'),
             ('Microphone (audio input)', 'microphone'),
-            ('LED - NeoPixel', 'led_neopixel'),
-            ('LED - Common Anode RGB', 'led_common_anode'),
+            ('LED (NeoPixel)', 'led_neopixel'),
+            ('LED (Common Anode RGB)', 'led_common_anode'),
             ('Servo motor (arm)', 'servo'),
             ('Camera', 'camera'),
         ]
@@ -131,12 +131,12 @@ class InitWizard:
 
         # If no existing config, use reasonable defaults
         if not defaults:
-            defaults = ['speaker', 'microphone']
+            defaults = ['speaker', 'microphone', 'led_neopixel', 'servo', 'camera']
 
         questions = [
             inquirer.Checkbox(
                 'hardware',
-                message='Select the hardware you want to enable',
+                message='Select the hardware you want to enable (press space to select, enter to confirm)',
                 choices=hardware_choices,
                 default=defaults
             )

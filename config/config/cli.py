@@ -21,6 +21,134 @@ from rich.panel import Panel
 console = Console()
 
 
+def _inquirer():
+    """Lazy import inquirer for interactive commands."""
+    import inquirer
+    return inquirer
+
+
+def _build_editor_wizard():
+    """Create and initialize wizard instance for advanced editing."""
+    from config.wizard import InitWizard
+
+    wizard = InitWizard()
+    wizard._load_existing_config()
+    wizard.config = dict(wizard.existing_config) if wizard.existing_config else {}
+    wizard.system_info = get_system_info()
+    return wizard
+
+def _edit_listen_configuration(wizard):
+    """Edit microphone and STT configuration."""
+    wizard.config.setdefault('hardware', {})['microphone'] = True
+    wizard._configure_microphone()
+    wizard._configure_listen_backend()
+
+
+def _edit_see_configuration(wizard):
+    """Edit camera and vision configuration."""
+    wizard.config.setdefault('hardware', {})['camera'] = True
+    wizard._configure_camera()
+    wizard._configure_see_backend()
+
+
+def _edit_shine_configuration(wizard):
+    """Edit LED configuration."""
+    inquirer = _inquirer()
+    questions = [
+        inquirer.List(
+            'led_type',
+            message='Select LED configuration to edit',
+            choices=[
+                ('NeoPixel LED', 'neopixel'),
+                ('Common Anode RGB LED', 'common_anode'),
+            ],
+            default='neopixel'
+        )
+    ]
+
+    answers = inquirer.prompt(questions)
+    if not answers:
+        return
+
+    wizard.config.setdefault('hardware', {})['led_neopixel'] = answers['led_type'] == 'neopixel'
+    wizard.config['hardware']['led_common_anode'] = answers['led_type'] == 'common_anode'
+
+    if answers['led_type'] == 'neopixel':
+        wizard._configure_neopixel()
+    else:
+        wizard._configure_common_anode()
+
+
+def _edit_speak_configuration(wizard):
+    """Edit speaker and TTS configuration."""
+    wizard.config.setdefault('hardware', {})['speaker'] = True
+    wizard._configure_speaker()
+    wizard._configure_speak_backend()
+
+
+def _edit_wave_configuration(wizard):
+    """Edit servo configuration."""
+    wizard.config.setdefault('hardware', {})['servo'] = True
+    wizard._configure_servo()
+
+
+def _run_advanced_editor():
+    """Run interactive advanced editor with hierarchical section list."""
+    inquirer = _inquirer()
+    wizard = _build_editor_wizard()
+
+    while True:
+        questions = [
+            inquirer.List(
+                'section',
+                message='Select configuration section to edit',
+                choices=[
+                    ('Logging mode', 'logging'),
+                    ('Hardware configuration', 'hardware'),
+                    ('Listen configuration (Microphone + Speech-to-Text)', 'listen'),
+                    ('See configuration (Camera + Vision)', 'see'),
+                    ('Shine configuration (LED)', 'shine'),
+                    ('Speak configuration (Speaker + Text-to-Speech)', 'speak'),
+                    ('Wave configuration (Servo)', 'wave'),
+                    ('💾 Save and exit', 'save'),
+                    ('🚪 Exit without saving', 'exit'),
+                ],
+                default='logging'
+            )
+        ]
+
+        answers = inquirer.prompt(questions)
+        if not answers:
+            return 130
+
+        section = answers['section']
+
+        if section == 'logging':
+            wizard._configure_logging()
+        elif section == 'hardware':
+            wizard._configure_hardware()
+        elif section == 'listen':
+            _edit_listen_configuration(wizard)
+        elif section == 'see':
+            _edit_see_configuration(wizard)
+        elif section == 'shine':
+            _edit_shine_configuration(wizard)
+        elif section == 'speak':
+            _edit_speak_configuration(wizard)
+        elif section == 'wave':
+            _edit_wave_configuration(wizard)
+        elif section == 'save':
+            writer = ConfigWriter()
+            if writer.write_config(wizard.config, add_comments=True, create_backup=True):
+                console.print("\n[green]✓ Configuration saved[/green]\n")
+                return 0
+            console.print("\n[red]✗ Failed to save configuration[/red]\n")
+            return 1
+        elif section == 'exit':
+            console.print("\n[yellow]No changes saved[/yellow]\n")
+            return 0
+
+
 def cmd_init(args):
     """Run initialization wizard."""
     from config.wizard import run_init_wizard
@@ -36,19 +164,7 @@ def cmd_init(args):
 def cmd_edit(args):
     """Run advanced editor."""
     console.print("\n[bold yellow]TJBot Configuration Editor[/bold yellow]\n")
-    console.print("[yellow]Interactive editor implementation in progress...[/yellow]")
-    console.print("\nFor now, you can edit the configuration file directly:")
-
-    loader = ConfigLoader()
-    config_path = loader.get_user_config_path()
-    console.print(f"  {config_path}\n")
-
-    if config_path.exists():
-        console.print(f"[green]✓ Configuration file exists[/green]")
-    else:
-        console.print(f"[yellow]! Configuration file does not exist. Run 'config init' first.[/yellow]")
-
-    return 0
+    return _run_advanced_editor()
 
 
 def cmd_validate(args):
