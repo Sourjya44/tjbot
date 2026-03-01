@@ -1,13 +1,17 @@
-#!/bin/sh
+#!/bin/bash
 
-#----make sure this is run as root
-user=`id -u`
-if [ $user -ne 0 ]; then
+# ============================================================================
+# Make sure this is run as root
+# ============================================================================
+user=$(id -u)
+if [ "$user" -ne 0 ]; then
     echo "This script requires root permissions. Please run this script with sudo."
     exit
 fi
 
-#----ascii art!
+# ============================================================================
+# ASCII art!
+# ============================================================================
 echo " _   _ _           _     _                 _       _                   "
 echo "| | (_) |         | |   | |               | |     | |                  "
 echo "| |_ _| |__   ___ | |_  | |__   ___   ___ | |_ ___| |_ _ __ __ _ _ __  "
@@ -17,7 +21,9 @@ echo " \__| |_.__/ \___/ \__| |_.__/ \___/ \___/ \__|___/\__|_|  \__,_| .__/ "
 echo "   _/ |                                                         | |    "
 echo "  |__/                                                          |_|    "
 
-#----intro message
+# ============================================================================
+# Intro message
+# ============================================================================
 echo ""
 echo "-----------------------------------------------------------------------"
 echo "Welcome! Let's set up your Raspberry Pi with the TJBot software."
@@ -30,249 +36,204 @@ echo "with its actions (e.g. performing an OS update, installing software"
 echo "packages, removing old packages, etc.)"
 echo "-----------------------------------------------------------------------"
 
-#----confirm bootstrap
-read -p "Would you like to use this Raspberry Pi for TJBot? [Y/n] " choice </dev/tty
+# ============================================================================
+# Confirm running bootstrap
+# ============================================================================
+read -r -p "Would you like to use this Raspberry Pi for TJBot? [Y/n] " choice </dev/tty
 case "$choice" in
     "n" | "N")
-        echo "OK, TJBot software will not be installed at this time."
+        echo "Cancelling TJBot software installation."
         exit
         ;;
     *) ;;
 esac
 echo
 
-CPUARCH=`lscpu |grep Arch |cut -d':' -f2 | awk '{$1=$1};1'`
+# ============================================================================
+# Test CPU architecture
+#   ARMv6 is not supported (RPi 1, Pi Zero, Compute Module 1)
+# ============================================================================
+echo ""
 
-if [ $CPUARCH = 'armv6l' ];
+CPUARCH=$(lscpu | grep Arch | cut -d ':' -f2 | awk '{$1=$1};1')
+if [ "$CPUARCH" = 'armv6l' ];
    then
-      echo "ARMv6 is not supported for TJBot due to software availability on this processor architecture. Please use another Raspberry Pi model"
+      echo "🛑 ARMv6 is not supported for TJBot due to software availability"
+      echo "on this processor architecture. Please use another Raspberry Pi model."
       exit 1
 else
-   echo "$CPUARCH processor architecture supported. Proceeding with setup"
+   echo "✓ $CPUARCH processor architecture supported."
 fi
 
+# ============================================================================
+# Test Raspbian version
+#   Raspbian 12 (Bookworm) or later is required
+# ============================================================================
+echo ""
 
-#----test raspbian version: if it's older than jessie, it may not work
-RASPBIAN_VERSION_ID=`cat /etc/os-release | grep VERSION_ID | cut -d '"' -f 2`
-RASPBIAN_VERSION=`cat /etc/os-release | grep VERSION= | cut -d '"' -f 2`
-if [ $RASPBIAN_VERSION_ID -lt 8 ]; then
-    echo "Warning: it looks like your Raspberry Pi is running an older version"
-    echo "of Raspian. TJBot has only been tested on Raspian 8 (Jessie) and"
-    echo "later."
+RASPBIAN_VERSION=$(cat /etc/os-release | grep VERSION | cut -d '"' -f 2)
+RASPBIAN_VERSION_ID=$(cat /etc/os-release | grep VERSION_ID | cut -d '"' -f 2)
+if [ "$RASPBIAN_VERSION_ID" -lt 12 ]; then
+    echo "⚠️ It looks like your Raspberry Pi is running an older version"
+    echo "of Raspian. TJBot requires Raspian 12 (Bookworm) or later."
     echo ""
-    read -p "Would you like to continue with setup? [Y/n] " choice </dev/tty
+    read -r -p "Would you like to continue with setup? [Y/n] " choice </dev/tty
     case "$choice" in
         "n" | "N")
-            echo "OK, TJBot software will not be installed at this time."
+            echo "Cancelling TJBot software installation."
             exit
+            ;;
+        *) ;;
+    esac
+else
+   echo "✓ Raspian OS level supported: $RASPBIAN_VERSION ($RASPBIAN_VERSION_ID)."
+fi
+
+# ============================================================================
+# Install additional apt packages
+# ============================================================================
+echo ""
+
+PACKAGES=(
+    libgpiod-dev
+    rpicam-apps-lite
+    tidy
+)
+
+echo "Updating apt repositories [apt-get update]"
+apt-get update
+
+echo "Installing additional software packages: ${PACKAGES[*]}"
+apt-get install -y "${PACKAGES[@]}"
+
+# ============================================================================
+# Install Node.js
+# ============================================================================
+echo ""
+
+# Get the first version in the list where the 10th column (LTS) is not "-"
+LATEST_NODE_LTS_VERSION=$(curl -sL https://nodejs.org/download/release/index.tab | \
+  awk '($10 != "-" && NR != 1) { print $1; exit }')
+MIN_NODE_MAJOR="18"
+NEED_NODE_INSTALL=false
+
+if which node > /dev/null; then
+    NODE_VERSION=$(node --version 2>&1)
+    NODE_MAJOR=$(node --version 2>&1 | cut -d '.' -f 1 | cut -d 'v' -f 2)
+    if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ]; then
+        echo "⚠️ Node.js $NODE_VERSION is currently installed. We recommend installing"
+        echo "v$MIN_NODE_MAJOR.x or later."
+        NEED_NODE_INSTALL=true
+    fi
+else
+    echo "⚠️ Node.js is not installed."
+    NEED_NODE_INSTALL=true
+fi
+
+if $NEED_NODE_INSTALL; then
+    read -r -p "Would you like to install Node.js $LATEST_NODE_LTS_VERSION? [Y/n] " choice </dev/tty
+    case "$choice" in
+        "" | "y" | "Y")
+            curl -sL https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo bash -
+            apt-get install -y nodejs
+            ;;
+        *)
+            echo "⚠️ TJBot recipes that require Javascript will not run without Node.js."
+            ;;
+    esac
+fi
+
+# ============================================================================
+# Clone TJBot repository
+# ============================================================================
+echo ""
+
+TARGET_USER=${SUDO_USER:-$USER}
+TARGET_HOME=$(eval echo "~$TARGET_USER")
+TJBOT_DIR="$TARGET_HOME/.tjbot"
+
+if [ ! -d "$TJBOT_DIR" ]; then
+    echo "Cloning TJBot project to $TJBOT_DIR"
+    sudo -u "$TARGET_USER" git clone https://github.com/ibmtjbot/tjbot.git "$TJBOT_DIR"
+else
+    echo "TJBot project already exists in $TJBOT_DIR, pulling latest changes"
+    sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" pull
+fi
+
+# ============================================================================
+# Add tjbot/bin to $PATH
+# ============================================================================
+echo ""
+
+PROFILE_FILE="$TARGET_HOME/.profile"
+if ! grep -Fq "$TJBOT_DIR/bin" "$PROFILE_FILE" 2>/dev/null; then
+    echo "Adding $TJBOT_DIR/bin to $TARGET_USER PATH in $PROFILE_FILE"
+    touch "$PROFILE_FILE"
+    printf "\n# Added by TJBot bootstrap\nexport PATH=\"\$PATH:%s/bin\"\n" "$TJBOT_DIR" >> "$PROFILE_FILE"
+    chown "$TARGET_USER":"$TARGET_USER" "$PROFILE_FILE" 2>/dev/null || true
+fi
+
+# ============================================================================
+# RPi 3: blacklist audio kernel modules
+# ============================================================================
+RPI_MODEL=$(grep "^Model" /proc/cpuinfo | cut -d ':' -f2 | xargs)
+if [[ "$RPI_MODEL" == *"Raspberry Pi 3"* ]]; then
+    echo ""
+    echo "On Raspberry Pi 3 models, there is a known conflict between the LED "
+    echo "and the built-in audio jack. In order for the LED to work, we need to"
+    echo "disable certain kernel modules to avoid this conflict. If you have "
+    echo "plugged in a speaker via HDMI, USB, or Bluetooth, this is a safe "
+    echo "operation and you will be able to play sound and use the LED at the "
+    echo "same time. If you plan to use the built-in audio jack, we recommend "
+    echo "NOT disabling the sound kernel modules."
+    read -r -p "Disable sound kernel modules? [Y/n] " choice </dev/tty
+    case "$choice" in
+        "" | "y" | "Y")
+            echo "Disabling the kernel modules for the built-in audio jack."
+            cp "$TJBOT_DIR"/bootstrap/tjbot-blacklist-snd.conf /etc/modprobe.d/
+            ;;
+        "n" | "N")
+            if [ -f /etc/modprobe.d/tjbot-blacklist-snd.conf ]; then
+                echo "Enabling the kernel modules for the built-in audio jack."
+                rm /etc/modprobe.d/tjbot-blacklist-snd.conf
+            fi
             ;;
         *) ;;
     esac
 fi
 
-#----setting TJBot name
-CURRENT_HOSTNAME=`cat /etc/hostname | tr -d " \t\n\r"`
+# ============================================================================
+# Create tjbot.toml configuration file
+# ============================================================================
 echo ""
-echo "Please enter a name for your TJBot. This will be used for the hostname of"
-echo "your Raspberry Pi."
-read -p "TJBot name (current: $CURRENT_HOSTNAME): " name </dev/tty
-name=$(echo "$name" | tr -d ' ')
-if [ -z $name ]; then
-    name=$CURRENT_HOSTNAME
-fi
-echo "Setting DNS hostname to $name"
-echo "$name" | tee /etc/hostname >/dev/null 2>&1
-sed -i "s/127.0.1.1.*$CURRENT_HOSTNAME/127.0.1.1\t$name/g" /etc/hosts
+echo "Configuring TJBot hardware & software settings..."
 
-#----disabling ipv6
-echo ""
-echo "In some networking environments, disabling ipv6 may help your Pi get on"
-echo "the network."
-read -p "Disable ipv6? [y/N] " choice </dev/tty
-case "$choice" in
-    "y" | "Y")
-        echo "Disabling ipv6"
-        echo " ipv6.disable=1" | tee -a /boot/cmdline.txt
-        echo "ipv6 has been disabled. It will take effect after rebooting."
-        ;;
-    *) ;;
-esac
-
-#----setting DNS to Quad9
-echo ""
-echo "In some networking environments, using Quad9's nameservers may speed up"
-echo "DNS queries and provide extra security and privacy."
-read -p "Enable Quad9 DNS? [y/N]: " choice </dev/tty
-case "$choice" in
-    "y" | "Y")
-        echo "Adding Quad9 DNS servers to /etc/resolv.conf"
-        if ! grep -q "nameserver 9.9.9.9" /etc/resolv.conf; then
-            echo "nameserver 9.9.9.9" | tee -a /etc/resolv.conf
-            echo "nameserver 149.112.112.112" | tee -a /etc/resolv.conf
-        fi
-        ;;
-    *) ;;
-esac
-
-#----setting local to US
-echo ""
-read -p "Force locale to US English (en-US)? [y/N] " choice </dev/tty
-case "$choice" in
-    "y" | "Y")
-        echo "Forcing locale to en-US. Please ignore any errors below."
-        export LC_ALL="en_US.UTF-8"
-        echo "en_US.UTF-8 UTF-8" | tee -a /etc/locale.gen
-        locale-gen en_US.UTF-8
-        ;;
-    *) ;;
-esac
-
-#----update raspberry
-echo ""
-echo "TJBot requires an up-to-date installation of your Raspberry Pi's operating"
-echo "system software. If you have never done this before, it can take up to an"
-echo "hour or longer."
-read -p "Proceed with apt-get dist-upgrade? [Y/n] " choice </dev/tty
-case "$choice" in
-    "n" | "N")
-        echo "Warning: you may encounter problems running TJBot recipes without performing"
-        echo "an apt-get dist-upgrade. If you experience these problems, please re-run"
-        echo "the bootstrap script and perform this step."
-        ;;
-    *)
-        echo "Updating apt repositories [apt-get update]"
-        apt-get update
-        echo "Upgrading OS distribution [apt-get dist-upgrade]"
-        apt-get -y dist-upgrade
-        ;;
-esac
-
-#----nodejs install
-apt-get -y install tidy >/dev/null
-
-echo ""
-RECOMMENDED_NODE_LEVEL=`curl -sS https://nodejs.org/en/ |tidy -q 2>/dev/null |grep LTS |grep "Download " |cut -d' ' -f2 |cut -d'.' -f1`
-
-MIN_NODE_LEVEL="16"
-NEED_NODE_INSTALL=false
-
-if which node > /dev/null; then
-    NODE_VERSION=$(node --version 2>&1)
-    NODE_LEVEL=$(node --version 2>&1 | cut -d '.' -f 1 | cut -d 'v' -f 2)
-    if [ $NODE_LEVEL -lt $MIN_NODE_LEVEL ]; then
-        echo "Node.js v$NODE_VERSION.x is currently installed. We recommend installing"
-        echo "v$MIN_NODE_LEVEL.x or later."
-        NEED_NODE_INSTALL=true
-    fi
-else
-    echo "Node.js is not installed."
-    NEED_NODE_INSTALL=true
-fi
-
-if $NEED_NODE_INSTALL; then
-    read -p "Would you like to install Node.js v$RECOMMENDED_NODE_LEVEL.x? [Y/n] " choice </dev/tty
+# Check if uv is installed
+if ! command -v uv >/dev/null 2>&1; then
+    echo "⚠️ uv is not installed but is required for TJBot's configuration tool."
+    echo ""
+    read -r -p "Would you like to install uv now? [Y/n] " choice </dev/tty
     case "$choice" in
         "" | "y" | "Y")
-            curl -sL https://deb.nodesource.com/setup_${RECOMMENDED_NODE_LEVEL}.x | sudo bash -
-            apt-get install -y nodejs
+            echo "Installing uv..."
+            curl -LsSf https://astral.sh/uv/install.sh | sh
             ;;
         *)
-            echo "Warning: TJBot may not operate without installing a current version of Node.js."
+            echo "⚠️ You can install uv later and run the configuration wizard with:"
+            echo "  ./tjbot config"
             ;;
     esac
 fi
 
-#----install additional packages
-echo ""
-echo "Installing additional software packages (libasound2-dev libportaudio0 libportaudio2 libportaudiocpp0 porta
-udio19-dev)"
-apt-get install -y libasound2-dev libportaudio0 libportaudio2 libportaudiocpp0 portaudio19-dev
-
-#----remove outdated apt packages
-echo ""
-echo "Removing unused software packages [apt-get autoremove]"
-apt-get -y autoremove
-
-#----enable camera on raspbery pi
-echo ""
-echo "If your Raspberry Pi has a camera installed, TJBot can use it to see."
-read -p "Enable camera? [y/N] " choice </dev/tty
-case "$choice" in
-    "y" | "Y")
-        if grep "start_x=1" /boot/config.txt
-        then
-            echo "Camera is already enabled."
-        else
-            echo "Enabling camera."
-            if grep "start_x=0" /boot/config.txt
-            then
-                sed -i "s/start_x=0/start_x=1/g" /boot/config.txt
-            else
-                echo "start_x=1" | tee -a /boot/config.txt >/dev/null 2>&1
-            fi
-            if grep "gpu_mem=128" /boot/config.txt
-            then
-                :
-            else
-                echo "gpu_mem=128" | tee -a /boot/config.txt >/dev/null 2>&1
-            fi
-        fi
-        ;;
-    *) ;;
-esac
-
-#----clone tjbot
-echo ""
-echo "We are ready to clone the TJBot project."
-TARGET_USER=${SUDO_USER:-$USER}
-TARGET_HOME=$(eval echo "~$TARGET_USER")
-DEFAULT_TJBOT_DIR="$TARGET_HOME/.tjbot"
-read -p "Where should we clone it to? (default: ~/.tjbot): " TJBOT_DIR </dev/tty
-if [ -z "$TJBOT_DIR" ]; then
-    TJBOT_DIR="$DEFAULT_TJBOT_DIR"
+if command -v uv >/dev/null 2>&1; then
+    cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
+    sudo -u "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for TJBot configuration, please check your tjbot installation and uv setup" && exit 1)
+    sudo -u "$TARGET_USER" uv run config init || (echo "🛑 Failed to run TJBot configuration, please check your tjbot installation and uv setup" && exit 1)
 fi
 
-if [ ! -d $TJBOT_DIR ]; then
-    echo "Cloning TJBot project to $TJBOT_DIR"
-    sudo -u "$TARGET_USER" git clone https://github.com/ibmtjbot/tjbot.git "$TJBOT_DIR"
-else
-    echo "TJBot project already exists in $TJBOT_DIR, leaving it alone"
-fi
-
-#----add tjbot bin to user path
-PROFILE_FILE="$TARGET_HOME/.profile"
-if ! grep -Fq "$TJBOT_DIR/bin" "$PROFILE_FILE" 2>/dev/null; then
-    echo "Adding $TJBOT_DIR/bin to $TARGET_USER PATH in $PROFILE_FILE"
-    touch "$PROFILE_FILE"
-    printf '\n# Added by TJBot bootstrap\nexport PATH="$PATH:%s/bin"\n' "$TJBOT_DIR" >> "$PROFILE_FILE"
-    chown "$TARGET_USER":"$TARGET_USER" "$PROFILE_FILE" 2>/dev/null || true
-fi
-
-#----blacklist audio kernel modules
-echo ""
-echo "On Raspberry Pi 3 models, there is a known conflict between the LED "
-echo "and the built-in audio jack. In order for the LED to work, we need to"
-echo "disable certain kernel modules to avoid this conflict. If you have "
-echo "plugged in a speaker via HDMI, USB, or Bluetooth, this is a safe "
-echo "operation and you will be able to play sound and use the LED at the "
-echo "same time. If you plan to use the built-in audio jack, we recommend "
-echo "NOT disabling the sound kernel modules."
-read -p "Disable sound kernel modules? [Y/n] " choice </dev/tty
-case "$choice" in
-    "" | "y" | "Y")
-        echo "Disabling the kernel modules for the built-in audio jack."
-        cp $TJBOT_DIR/bootstrap/tjbot-blacklist-snd.conf /etc/modprobe.d/
-        ;;
-    "n" | "N")
-        if [ -f /etc/modprobe.d/tjbot-blacklist-snd.conf ]; then
-            echo "Enabling the kernel modules for the built-in audio jack."
-            rm /etc/modprobe.d/tjbot-blacklist-snd.conf
-        fi
-        ;;
-    *) ;;
-esac
-
-#----installation complete
+# ============================================================================
+# Installation complete!
+# ============================================================================
 sleep_time=0.1
 echo ""
 echo ""
@@ -340,79 +301,17 @@ echo ""
 sleep $sleep_time
 echo "-------------------------------------------------------------------"
 sleep $sleep_time
-echo "Setup complete. Your Raspberry Pi is now set up as a TJBot! ;)"
+echo "Setup complete. Your Raspberry Pi is now set up as a TJBot! 🤖"
 sleep $sleep_time
 echo "-------------------------------------------------------------------"
 echo ""
-read -p "Press enter to continue" nonce </dev/tty
+read -r -p "Press enter to continue" </dev/tty
 
-#----install and run tjbot config
+# ============================================================================
+# Reboot
+# ============================================================================
 echo ""
-echo "-------------------------------------------------------------------"
-echo "Setting up TJBot Configuration Tool..."
-echo "-------------------------------------------------------------------"
-echo ""
-
-# Check if uv is installed
-if ! command -v uv &> /dev/null; then
-    echo "✗ uv is not installed"
-    echo ""
-    echo "tjbot's config tool requires 'uv' for Python dependency management."
-    echo "Install uv with one of these methods:"
-    echo ""
-    echo "  # Recommended (standalone installer):"
-    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
-    echo ""
-    echo "  # Alternative (using pip):"
-    echo "  pip3 install uv --user"
-    echo ""
-    echo "After installing uv, you can run config anytime with:"
-    echo "  ./tjbot config"
-    echo ""
-else
-    # uv is installed, set up config
-    cd ../config
-    echo "Setting up Python environment with uv..."
-
-    # Run uv sync as the pi user
-    uv sync --quiet
-
-    if [ $? -eq 0 ]; then
-        echo "✓ Environment ready"
-        echo ""
-        echo "-------------------------------------------------------------------"
-        echo "TJBot Configuration Wizard"
-        echo "-------------------------------------------------------------------"
-        echo ""
-        echo "The TJBot configuration wizard will help you:"
-        echo "  • Configure your TJBot hardware (LED, servo, camera, etc.)"
-        echo "  • Set up local or cloud-based AI services (Speech, Vision, etc.)"
-        echo ""
-        read -p "Run configuration wizard now? [Y/n] " choice </dev/tty
-        case "$choice" in
-            "" | "y" | "Y")
-                echo ""
-                uv run config init
-                echo ""
-                ;;
-            *)
-                echo ""
-                echo "You can run the configuration wizard anytime with:"
-                echo "  ./tjbot config"
-                echo ""
-                ;;
-        esac
-    else
-        echo "✗ Failed to set up config environment"
-        echo "  You can try manually with:"
-        echo "  cd config && uv sync"
-        echo ""
-    fi
-fi
-
-#----reboot
-echo ""
-read -p "We recommend rebooting for all changes to take effect. Reboot? [Y/n] " choice </dev/tty
+read -r -p "We recommend rebooting for all changes to take effect. Reboot? [Y/n] " choice </dev/tty
 case "$choice" in
     "" | "y" | "Y")
         echo "Rebooting."
