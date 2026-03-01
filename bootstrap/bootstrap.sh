@@ -186,19 +186,25 @@ if [[ "$RPI_MODEL" == *"Raspberry Pi 3"* ]]; then
     echo "operation and you will be able to play sound and use the LED at the "
     echo "same time. If you plan to use the built-in audio jack, we recommend "
     echo "NOT disabling the sound kernel modules."
-    read -r -p "Disable sound kernel modules? [Y/n] " choice </dev/tty
+    read -r -p "Enable or disable sound kernel modules? [DISABLE/enable] " choice </dev/tty
     case "$choice" in
-        "" | "y" | "Y")
+        "" | "d" | "D" | "disable" | "DISABLE")
             echo "Disabling the kernel modules for the built-in audio jack."
-            cp "$TJBOT_DIR"/bootstrap/tjbot-blacklist-snd.conf /etc/modprobe.d/
+            cat > "/etc/modprobe.d/tjbot-blacklist-snd.conf" << EOF
+blacklist snd_bcm2835
+EOF
             ;;
-        "n" | "N")
+        "e" | "E" | "enable" | "ENABLE")
             if [ -f /etc/modprobe.d/tjbot-blacklist-snd.conf ]; then
                 echo "Enabling the kernel modules for the built-in audio jack."
                 rm /etc/modprobe.d/tjbot-blacklist-snd.conf
             fi
             ;;
-        *) ;;
+        *)
+            echo "No changes will be made to the sound kernel modules. If you want to enable"
+            echo "or disable them, you can run this script again and choose the appropriate"
+            echo "option."
+        ;;
     esac
 fi
 
