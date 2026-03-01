@@ -36,6 +36,7 @@ show_usage() {
     echo "  tjbot config [args]       Configure TJBot credentials and settings"
     echo "  tjbot run                 List available recipes"
     echo "  tjbot run <recipe>        Run a specific recipe"
+    echo "  tjbot create [recipe-name] Create a new recipe"
     echo "  tjbot update [tag]        Update TJBot to latest release (or specific tag)"
     echo "  tjbot check-updates       Check for available updates"
     echo ""
@@ -251,6 +252,49 @@ do_update() {
     fi
 }
 
+# Validate that a directory matches the new recipe contract
+validate_recipe_dir() {
+    local recipe_dir="$1"
+
+    if [ ! -d "$recipe_dir" ]; then
+        echo -e "${RED}Error: Recipe directory not found: $recipe_dir${NC}"
+        return 1
+    fi
+
+    if [ ! -f "$recipe_dir/recipe.toml" ]; then
+        echo -e "${RED}Error: Missing recipe.toml in $recipe_dir${NC}"
+        return 1
+    fi
+
+    if [ ! -f "$recipe_dir/mise.toml" ]; then
+        echo -e "${RED}Error: Missing mise.toml in $recipe_dir${NC}"
+        return 1
+    fi
+
+    if ! grep -q "\[tasks\.start\]" "$recipe_dir/mise.toml"; then
+        echo -e "${RED}Error: Missing [tasks.start] in $recipe_dir/mise.toml${NC}"
+        return 1
+    fi
+
+    return 0
+}
+
+# Prompt helper for y/n capability flags
+prompt_yes_no() {
+    local prompt_text="$1"
+    local default_value="$2"
+    local reply
+
+    read -r -p "$prompt_text" reply
+    reply="${reply:-$default_value}"
+
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
 # Function to list recipes
 list_recipes() {
     echo -e "${BLUE}Available TJBot Recipes:${NC}"
@@ -265,13 +309,10 @@ list_recipes() {
         if [ -d "$recipe_dir" ]; then
             recipe_name=$(basename "$recipe_dir")
 
-            # Determine recipe type
-            if [ -f "$recipe_dir/package.json" ]; then
-                recipe_type="${GREEN}[JavaScript]${NC}"
-            elif [ -f "$recipe_dir/pyproject.toml" ]; then
-                recipe_type="${YELLOW}[Python]${NC}"
+            if [ -f "$recipe_dir/recipe.toml" ] && [ -f "$recipe_dir/mise.toml" ]; then
+                recipe_type="${GREEN}[Standard]${NC}"
             else
-                recipe_type="${RED}[Unknown]${NC}"
+                recipe_type="${RED}[Invalid]${NC}"
             fi
 
             echo -e "  - $recipe_name $recipe_type"
@@ -281,58 +322,338 @@ list_recipes() {
     echo "Run a recipe with: tjbot run <recipe>"
 }
 
+# Function to generate recipe.toml
+write_recipe_toml() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+
+    cat > "$recipe_dir/recipe.toml" << EOF
+[recipe]
+name = "$recipe_name"
+description = "$description"
+version = "1.0.0"
+author = "$author"
+license = "$license"
+
+# Recipe-specific configuration
+[config]
+EOF
+}
+
+# Function to generate mise.toml
+write_mise_toml() {
+    local recipe_dir="$1"
+    local language="$2"
+
+    if [ "$language" = "javascript" ]; then
+        cat > "$recipe_dir/mise.toml" << 'EOF'
+[tools]
+node = ">=18"
+
+[tasks.start]
+run = "npm start"
+description = "Run recipe"
+EOF
+    else
+        cat > "$recipe_dir/mise.toml" << 'EOF'
+[tools]
+python = "3.11"
+
+[tasks.start]
+run = "uv run main.py"
+description = "Run recipe"
+EOF
+    fi
+}
+
+# Function to generate README.md
+write_recipe_readme() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local recipe_slug="$4"
+    local license="$5"
+    local listen="$6"
+    local see="$7"
+    local shine="$8"
+    local speak="$9"
+    local wave="${10}"
+
+# shellcheck disable=SC2006
+    cat > "$recipe_dir/README.md" << EOF
+# $recipe_name
+
+TODO: Add description here
+
+## Requirements
+
+- Raspberry Pi
+- TJBot configured (\`tjbot bootstrap\` + \`tjbot config\`)
+- Required capabilities:
+  - listen: $listen
+  - see: $see
+  - shine: $shine
+  - speak: $speak
+  - wave: $wave
+
+## How It Works
+
+This recipe uses TJBot capabilities listed above and runs through \`mise run start\`.
+
+## Setup
+
+Install tools and dependencies from this recipe directory.
+
+\`\`\`sh
+mise install
+\`\`\`
+
+## Run
+
+Run from anywhere:
+
+\`\`\`sh
+tjbot run $recipe_slug
+\`\`\`
+
+Or from this recipe directory:
+
+\`\`\`sh
+tjbot run .
+\`\`\`
+
+## Customize
+
+### Customization 1
+
+Edit the recipe source code to change default behavior.
+
+### Customization 2
+
+Adjust runtime/dependency behavior through \`mise.toml\` and language project files.
+
+## Troubleshoot
+
+If you have problems running this recipe, see the TJBot troubleshooting guide.
+
+## Contribute
+
+If you would like to contribute to TJBot, see the contributor's guide.
+
+## License
+
+$license
+EOF
+}
+# shellcheck enable=all
+
+# Function to generate language starter files
+write_language_starters() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+    local language="$6"
+    local listen="$7"
+    local see="$8"
+    local shine="$9"
+    local speak="${10}"
+    local wave="${11}"
+
+    if [ "$language" = "javascript" ]; then
+        # Build hardware config based on capabilities
+        local hardware_lines=""
+        [ "$listen" = "true" ] && hardware_lines+="        'microphone': true,\n"
+        [ "$see" = "true" ] && hardware_lines+="        'camera': true,\n"
+        [ "$shine" = "true" ] && hardware_lines+="        'led': true,\n"
+        [ "$speak" = "true" ] && hardware_lines+="        'speaker': true,\n"
+        [ "$wave" = "true" ] && hardware_lines+="        'servo': true,\n"
+        
+        # Remove trailing comma from last line
+        hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
+
+        cat > "$recipe_dir/index.js" << EOF
+/**
+ * $recipe_name
+ * Author: $author
+ */
+
+import TJBot from 'tjbot';
+
+const tj = new TJBot({
+    hardware: {
+${hardware_lines}
+    }
+});
+EOF
+
+        cat > "$recipe_dir/package.json" << EOF
+{
+  "name": "$recipe_name",
+  "version": "1.0.0",
+  "description": "$description",
+  "license": "$license",
+  "author": "$author",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "tjbot": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0"
+  }
+}
+EOF
+    else
+        cat > "$recipe_dir/main.py" << 'EOF'
+def main():
+    print("Hello from TJBot recipe!")
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+        cat > "$recipe_dir/pyproject.toml" << EOF
+[project]
+name = "$recipe_slug"
+version = "1.0.0"
+description = "A TJBot recipe"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+EOF
+    fi
+}
+
+# Function to create a recipe scaffold
+create_recipe() {
+    local recipe_folder="$1"
+    local recipe_name
+    local description
+    local author
+    local license
+    local language
+    local recipe_dir
+    local listen
+    local see
+    local shine
+    local speak
+    local wave
+
+    if [ -z "$recipe_folder" ]; then
+        echo -e "${RED}Error: Recipe name required${NC}"
+        echo "Usage: tjbot create <recipe-name>"
+        exit 1
+    fi
+
+    # Strip any directory prefix (e.g. "recipes/test-recipe" -> "test-recipe")
+    recipe_folder="$(basename "$recipe_folder")"
+    recipe_dir="$TJBOT_ROOT/recipes/$recipe_folder"
+    if [ -e "$recipe_dir" ]; then
+        echo -e "${RED}Error: Recipe already exists at $recipe_dir${NC}"
+        exit 1
+    fi
+
+    echo -e "${BLUE}Create TJBot recipe${NC}"
+    echo ""
+
+    read -r -p "Display name [$recipe_folder]: " recipe_name
+    recipe_name="${recipe_name:-$recipe_folder}"
+
+    read -r -p "Description: " description
+    if [ -z "$description" ]; then
+        description="TODO: Add description"
+    fi
+
+    read -r -p "Author [TJBot Contributor]: " author
+    if [ -z "$author" ]; then
+        author="TJBot Contributor"
+    fi
+
+    read -r -p "License [Apache-2.0]: " license
+    if [ -z "$license" ]; then
+        license="Apache-2.0"
+    fi
+
+    read -r -p "Language (python/py or javascript/js): " language
+    case "$language" in
+        javascript|js)
+            language="javascript"
+            ;;
+        python|py)
+            language="python"
+            ;;
+        *)
+            echo -e "${RED}Error: Language must be 'python', 'py', 'javascript', or 'js'${NC}"
+            exit 1
+            ;;
+    esac
+
+    echo ""
+    echo "Required capabilities:"
+    listen=$(prompt_yes_no "- listen (microphone + STT) (y/n) [n]: " "n")
+    see=$(prompt_yes_no "- see (camera + vision) (y/n) [n]: " "n")
+    shine=$(prompt_yes_no "- shine (LED) (y/n) [n]: " "n")
+    speak=$(prompt_yes_no "- speak (speaker + TTS) (y/n) [n]: " "n")
+    wave=$(prompt_yes_no "- wave (servo) (y/n) [n]: " "n")
+
+    mkdir -p "$recipe_dir"
+
+    write_recipe_toml "$recipe_dir" "$recipe_name" "$description" "$author" "$license"
+    write_mise_toml "$recipe_dir" "$language"
+    write_language_starters "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$language" "$listen" "$see" "$shine" "$speak" "$wave"
+    write_recipe_readme "$recipe_dir" "$recipe_name" "$description" "$recipe_folder" "$license" "$listen" "$see" "$shine" "$speak" "$wave"
+
+    echo ""
+    echo -e "${GREEN}Created recipe at: $recipe_dir${NC}"
+}
+
 # Function to run a recipe
 run_recipe() {
     local recipe_name="$1"
-    local recipe_dir="$TJBOT_ROOT/recipes/$recipe_name"
+    local recipe_dir
 
-    if [ ! -d "$recipe_dir" ]; then
-        echo -e "${RED}Error: Recipe '$recipe_name' not found${NC}"
-        echo ""
-        echo "Available recipes:"
-        list_recipes
-        exit 1
-    fi
-
-    # Detect recipe type and run accordingly
-    if [ -f "$recipe_dir/package.json" ]; then
-        echo -e "${GREEN}Running JavaScript recipe: $recipe_name${NC}"
-        cd "$recipe_dir" || exit 1
-
-        # Check if npm is installed
-        if ! command -v npm &> /dev/null; then
-            echo -e "${RED}Error: npm is not installed${NC}"
-            exit 1
-        fi
-
-        # Install dependencies if node_modules doesn't exist
-        if [ ! -d "node_modules" ]; then
-            echo -e "${YELLOW}Installing dependencies...${NC}"
-            npm install
-        fi
-
-        npm start
-
-    elif [ -f "$recipe_dir/pyproject.toml" ]; then
-        echo -e "${YELLOW}Running Python recipe: $recipe_name${NC}"
-        cd "$recipe_dir" || exit 1
-
-        # Check if uv is installed
-        if ! command -v uv &> /dev/null; then
-            echo -e "${RED}Error: uv is not installed${NC}"
-            echo ""
-            echo "Install uv with:"
-            echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
-            exit 1
-        fi
-
-        uv run
-
+    if [ "$recipe_name" = "." ]; then
+        recipe_dir="$PWD"
+        recipe_name="current directory"
     else
-        echo -e "${RED}Error: Unable to determine recipe type for '$recipe_name'${NC}"
-        echo "Recipe must contain either package.json (JavaScript) or pyproject.toml (Python)"
+        recipe_dir="$TJBOT_ROOT/recipes/$recipe_name"
+    fi
+
+    if ! validate_recipe_dir "$recipe_dir"; then
+        if [ "$recipe_name" != "current directory" ]; then
+            echo ""
+            echo "Available recipes:"
+            list_recipes
+        fi
         exit 1
     fi
+
+    if ! command -v mise &> /dev/null; then
+        echo -e "${RED}Error: mise is not installed${NC}"
+        echo ""
+        echo "Install mise with:"
+        echo "  curl https://mise.run | sh"
+        exit 1
+    fi
+
+    echo -e "${GREEN}Running recipe: $recipe_name${NC}"
+    cd "$recipe_dir" || exit 1
+    mise run start
 }
 
 # Main command routing
@@ -365,6 +686,10 @@ case "$1" in
         else
             run_recipe "$2"
         fi
+        ;;
+
+    create)
+        create_recipe "$2"
         ;;
 
     update)
