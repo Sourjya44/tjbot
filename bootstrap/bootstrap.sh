@@ -107,6 +107,20 @@ echo "Installing additional software packages: ${PACKAGES[*]}"
 apt-get install -y "${PACKAGES[@]}"
 
 # ============================================================================
+# Install mise
+# ============================================================================
+echo ""
+echo "Installing mise..."
+
+if ! command -v mise &> /dev/null; then
+    curl https://mise.run | sh
+    eval "$(~/.local/bin/mise activate bash)"
+    echo "✓ mise installed successfully"
+else
+    echo "✓ mise is already installed"
+fi
+
+# ============================================================================
 # Install Node.js
 # ============================================================================
 echo ""
