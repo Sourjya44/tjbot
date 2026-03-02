@@ -137,6 +137,19 @@ else
 fi
 
 # ============================================================================
+# Install uv
+# ============================================================================
+echo ""
+echo "Installing uv..."
+
+if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    echo "✓ uv installed successfully"
+else
+    echo "✓ uv is already installed"
+fi
+
+# ============================================================================
 # Install Node.js
 # ============================================================================
 echo ""
@@ -147,30 +160,33 @@ LATEST_NODE_LTS_VERSION=$(curl -sL https://nodejs.org/download/release/index.tab
 MIN_NODE_MAJOR="18"
 NEED_NODE_INSTALL=false
 
-if which node > /dev/null; then
+if command -v node >/dev/null 2>&1; then
     NODE_VERSION=$(node --version 2>&1)
     NODE_MAJOR=$(node --version 2>&1 | cut -d '.' -f 1 | cut -d 'v' -f 2)
     if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ]; then
-        echo "⚠️ Node.js $NODE_VERSION is currently installed. We recommend installing"
+        echo "⚠️ Node.js $NODE_VERSION is currently installed. TJBot requires"
         echo "v$MIN_NODE_MAJOR.x or later."
-        NEED_NODE_INSTALL=true
+
+        read -r -p "Would you like to update Node.js to $LATEST_NODE_LTS_VERSION? [Y/n] " choice </dev/tty
+        case "$choice" in
+            "" | "y" | "Y")
+                NEED_NODE_INSTALL=true
+                ;;
+            *)
+                echo "⚠️ TJBot recipes that require Javascript may not run properly with Node.js $NODE_VERSION."
+                ;;
+        esac
+    else
+        echo "✓ Node.js version $NODE_VERSION is installed."
     fi
 else
-    echo "⚠️ Node.js is not installed."
+    echo "Node.js is not installed."
     NEED_NODE_INSTALL=true
 fi
 
 if $NEED_NODE_INSTALL; then
-    read -r -p "Would you like to install Node.js $LATEST_NODE_LTS_VERSION? [Y/n] " choice </dev/tty
-    case "$choice" in
-        "" | "y" | "Y")
-            curl -sL https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo bash -
-            apt-get install -y nodejs
-            ;;
-        *)
-            echo "⚠️ TJBot recipes that require Javascript will not run without Node.js."
-            ;;
-    esac
+    curl -sL https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo bash -
+    apt-get install -y nodejs
 fi
 
 # ============================================================================
@@ -243,23 +259,6 @@ fi
 # ============================================================================
 echo ""
 echo "Configuring TJBot hardware & software settings..."
-
-# Check if uv is installed
-if ! command -v uv >/dev/null 2>&1; then
-    echo "⚠️ uv is not installed but is required for TJBot's configuration tool."
-    echo ""
-    read -r -p "Would you like to install uv now? [Y/n] " choice </dev/tty
-    case "$choice" in
-        "" | "y" | "Y")
-            echo "Installing uv..."
-            curl -LsSf https://astral.sh/uv/install.sh | sh
-            ;;
-        *)
-            echo "⚠️ You can install uv later and run the configuration wizard with:"
-            echo "  ./tjbot config"
-            ;;
-    esac
-fi
 
 if command -v uv >/dev/null 2>&1; then
     cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
