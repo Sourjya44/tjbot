@@ -123,17 +123,24 @@ echo "Installing additional software packages: ${PACKAGES[*]}"
 apt-get install -y "${PACKAGES[@]}"
 
 # ============================================================================
+# Capture target user and home directory
+# ============================================================================
+TARGET_USER=${SUDO_USER:-$USER}
+TARGET_HOME=$(eval echo "~$TARGET_USER")
+TJBOT_DIR="$TARGET_HOME/.tjbot"
+
+# ============================================================================
 # Install mise
 # ============================================================================
 echo ""
 echo "Installing mise..."
 
-if ! command -v mise &> /dev/null; then
-    curl https://mise.run | sh
-    eval "$(~/.local/bin/mise activate bash)"
+if ! sudo -u "$TARGET_USER" sh -c 'command -v mise' &> /dev/null; then
+    echo "Installing mise for user $TARGET_USER..."
+    sudo -u "$TARGET_USER" bash -c 'curl https://mise.run | bash'
     echo "✓ mise installed successfully"
 else
-    echo "✓ mise is already installed"
+    echo "✓ mise is already installed for $TARGET_USER"
 fi
 
 # ============================================================================
@@ -142,11 +149,12 @@ fi
 echo ""
 echo "Installing uv..."
 
-if ! command -v uv >/dev/null 2>&1; then
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+if ! sudo -u "$TARGET_USER" sh -c 'command -v uv' >/dev/null 2>&1; then
+    echo "Installing uv for user $TARGET_USER..."
+    sudo -u "$TARGET_USER" bash -c 'curl -LsSf https://astral.sh/uv/install.sh | bash'
     echo "✓ uv installed successfully"
 else
-    echo "✓ uv is already installed"
+    echo "✓ uv is already installed for $TARGET_USER"
 fi
 
 # ============================================================================
@@ -193,10 +201,6 @@ fi
 # Clone TJBot repository
 # ============================================================================
 echo ""
-
-TARGET_USER=${SUDO_USER:-$USER}
-TARGET_HOME=$(eval echo "~$TARGET_USER")
-TJBOT_DIR="$TARGET_HOME/.tjbot"
 
 if [ ! -d "$TJBOT_DIR" ]; then
     echo "Cloning TJBot project to $TJBOT_DIR"
