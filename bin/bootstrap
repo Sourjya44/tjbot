@@ -355,7 +355,6 @@ echo "Setup complete. Your Raspberry Pi is now set up as a TJBot! 🤖"
 sleep $sleep_time
 echo "-------------------------------------------------------------------"
 echo ""
-read -r -p "Press enter to continue" </dev/tty
 
 # ============================================================================
 # Reboot
