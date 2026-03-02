@@ -87,8 +87,8 @@ fi
 # ============================================================================
 echo ""
 
-RASPBIAN_VERSION=$(cat /etc/os-release | grep VERSION | cut -d '"' -f 2)
-RASPBIAN_VERSION_ID=$(cat /etc/os-release | grep VERSION_ID | cut -d '"' -f 2)
+RASPBIAN_VERSION_ID=$(grep '^VERSION_ID=' /etc/os-release | cut -d '"' -f 2)
+RASPBIAN_CODENAME=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d '=' -f 2)
 if [ "$RASPBIAN_VERSION_ID" -lt 12 ]; then
     echo "⚠️ It looks like your Raspberry Pi is running an older version"
     echo "of Raspian. TJBot requires Raspian 12 (Bookworm) or later."
@@ -102,7 +102,7 @@ if [ "$RASPBIAN_VERSION_ID" -lt 12 ]; then
         *) ;;
     esac
 else
-   echo "✓ Raspian OS level supported: $RASPBIAN_VERSION ($RASPBIAN_VERSION_ID)."
+   echo "✓ Raspian OS level supported: $RASPBIAN_VERSION_ID ($RASPBIAN_CODENAME)."
 fi
 
 # ============================================================================
