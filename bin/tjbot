@@ -472,7 +472,7 @@ write_language_starters() {
         [ "$shine" = "true" ] && hardware_lines+="        'led': true,\n"
         [ "$speak" = "true" ] && hardware_lines+="        'speaker': true,\n"
         [ "$wave" = "true" ] && hardware_lines+="        'servo': true,\n"
-        
+
         # Remove trailing comma from last line
         hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
 
@@ -625,24 +625,9 @@ create_recipe() {
 # Function to run a recipe
 run_recipe() {
     local recipe_name="$1"
-    local recipe_dir
+    local recipe_dir=""
 
-    if [ "$recipe_name" = "." ]; then
-        recipe_dir="$PWD"
-        recipe_name="current directory"
-    else
-        recipe_dir="$TJBOT_ROOT/recipes/$recipe_name"
-    fi
-
-    if ! validate_recipe_dir "$recipe_dir"; then
-        if [ "$recipe_name" != "current directory" ]; then
-            echo ""
-            echo "Available recipes:"
-            list_recipes
-        fi
-        exit 1
-    fi
-
+    # Check if mise is installed first
     if ! command -v mise &> /dev/null; then
         echo -e "${RED}Error: mise is not installed${NC}"
         echo ""
@@ -651,9 +636,37 @@ run_recipe() {
         exit 1
     fi
 
-    echo -e "${GREEN}Running recipe: $recipe_name${NC}"
-    cd "$recipe_dir" || exit 1
-    mise run start
+    # First, try to treat the input as a path
+    if [ "$recipe_name" = "." ]; then
+        recipe_dir="$PWD"
+    elif [ -d "$recipe_name" ]; then
+        # Convert to absolute path
+        recipe_dir="$(cd "$recipe_name" && pwd)"
+    fi
+
+    # If we found a valid directory path, try to validate and run it
+    if [ -n "$recipe_dir" ] && validate_recipe_dir "$recipe_dir"; then
+        echo -e "${GREEN}Running recipe: $recipe_name${NC}"
+        cd "$recipe_dir" || exit 1
+        mise run start
+        return 0
+    fi
+
+    # Try as a built-in recipe name
+    recipe_dir="$TJBOT_ROOT/recipes/$recipe_name"
+    if [ -d "$recipe_dir" ] && validate_recipe_dir "$recipe_dir"; then
+        echo -e "${GREEN}Running recipe: $recipe_name${NC}"
+        cd "$recipe_dir" || exit 1
+        mise run start
+        return 0
+    fi
+
+    # Neither a valid path nor a built-in recipe
+    echo -e "${RED}Error: No recipe found at '$recipe_name'${NC}"
+    echo ""
+    echo "Available built-in recipes:"
+    list_recipes
+    exit 1
 }
 
 # Main command routing
