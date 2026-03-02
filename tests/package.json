@@ -7,30 +7,23 @@
     "url": "https://github.com/ibmtjbot/tjbot/issues"
   },
   "dependencies": {
-    "readline-sync": "^1.4.10",
-    "tjbot": "file:../../node-tjbotlib"
-  },
-  "devDependencies": {
-    "eslint": "^8.51.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.28.1"
+    "node-tjbotlib": "latest"
   },
   "homepage": "https://github.com/ibmtjbot/tjbot#readme",
   "keywords": [
     "TJBot"
   ],
   "license": "Apache-2.0",
-  "main": "test.led.js",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ibmtjbot/tjbot.git"
   },
   "scripts": {
-    "test-camera": "sudo node test.camera.js",
-    "test-led": "sudo node test.led.js",
-    "test-mic": "sudo node test.mic.js",
-    "test-servo": "sudo node test.servo.js",
-    "test-speaker": "sudo node test.speaker.js"
+    "test-camera": "cd node_modules/node-tjbotlib && npm run test-camera",
+    "test-led": "cd node_modules/node-tjbotlib && npm run test-led",
+    "test-microphone": "cd node_modules/node-tjbotlib && npm run test-microphone",
+    "test-servo": "cd node_modules/node-tjbotlib && npm run test-servo",
+    "test-speaker": "cd node_modules/node-tjbotlib && npm run test-speaker"
   }
 }
