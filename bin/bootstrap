@@ -164,7 +164,7 @@ echo ""
 
 # Get the first version in the list where the 10th column (LTS) is not "-"
 LATEST_NODE_LTS_VERSION=$(curl -sLSf https://nodejs.org/download/release/index.tab | \
-  awk '($10 != "-" && NR != 1) { print $1; exit }')
+  awk '($10 != "-" && NR != 1) { print $1; exit }' | cut -d '.' -f 1 | cut -d 'v' -f 2)
 MIN_NODE_MAJOR="18"
 NEED_NODE_INSTALL=false
 
@@ -193,8 +193,8 @@ else
 fi
 
 if $NEED_NODE_INSTALL; then
-    curl -sLSf https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo bash -
-    apt-get install -y nodejs
+    curl -sLSf https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo -E bash -
+    apt install nodejs -y
 fi
 
 # ============================================================================
