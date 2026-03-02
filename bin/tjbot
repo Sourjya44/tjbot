@@ -1,7 +1,20 @@
 #!/bin/bash
 #
-# TJBot Launcher - Generic launcher for all TJBot operations
+# tjbot - Command-line launcher for TJBot recipes, configuration, and utilities
 #
+# Copyright 2026-present TJBot Contributors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # Colors for output
 RED='\033[0;31m'
@@ -763,8 +776,8 @@ run_recipe() {
 case "$1" in
     bootstrap)
         echo -e "${GREEN}Running TJBot bootstrap...${NC}"
-        cd "$TJBOT_ROOT/bootstrap" || exit 1
-        sudo "$SHELL" ./bootstrap.sh
+        cd "$TJBOT_ROOT/bin" || exit 1
+        sudo "$SHELL" ./bootstrap
         ;;
 
     config)
