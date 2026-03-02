@@ -213,7 +213,7 @@ echo ""
 
 if [ ! -d "$TJBOT_DIR" ]; then
     echo "Cloning TJBot project to $TJBOT_DIR"
-    sudo -u "$TARGET_USER" git clone https://github.com/ibmtjbot/tjbot.git "$TJBOT_DIR"
+    sudo -u "$TARGET_USER" git clone https://github.com/tjbot-ce/tjbot.git "$TJBOT_DIR"
 else
     echo "TJBot project already exists in $TJBOT_DIR, pulling latest changes"
     sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" pull
