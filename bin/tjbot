@@ -339,7 +339,9 @@ author = "$author"
 license = "$license"
 
 # Recipe-specific configuration
+# Add any custom configuration options your recipe needs here.
 [config]
+
 EOF
 }
 
@@ -353,7 +355,12 @@ write_mise_toml() {
 [tools]
 node = ">=18"
 
+[tasks.install]
+run = "npm install"
+description = "Install recipe dependencies"
+
 [tasks.start]
+depends = ["install"]
 run = "npm start"
 description = "Run recipe"
 EOF
@@ -381,74 +388,95 @@ write_recipe_readme() {
     local shine="$8"
     local speak="$9"
     local wave="${10}"
+    local language="${11}"
 
-# shellcheck disable=SC2006
+    local hardware_shields=""
+    local language_shield=""
+
+    [ "$listen" = "true" ] && hardware_shields+="![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)\n"
+    [ "$see" = "true" ] && hardware_shields+="![Camera](https://img.shields.io/badge/Hardware-Camera-orange)\n"
+    [ "$shine" = "true" ] && hardware_shields+="![LED](https://img.shields.io/badge/Hardware-LED-orange)\n"
+    [ "$speak" = "true" ] && hardware_shields+="![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)\n"
+    [ "$wave" = "true" ] && hardware_shields+="![Servo](https://img.shields.io/badge/Hardware-Servo-orange)\n"
+
+    if [ "$language" = "javascript" ]; then
+        language_shield="![Node.js](https://img.shields.io/badge/Node.js-18%2B-yellow)"
+    else
+        language_shield="![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)"
+    fi
+
     cat > "$recipe_dir/README.md" << EOF
 # $recipe_name
+
+> TODO: Add subtitle here
 
 TODO: Add description here
 
 ## Requirements
 
-- Raspberry Pi
-- TJBot configured (\`tjbot bootstrap\` + \`tjbot config\`)
-- Required capabilities:
-  - listen: $listen
-  - see: $see
-  - shine: $shine
-  - speak: $speak
-  - wave: $wave
+![Raspberry Pi 3b](https://img.shields.io/badge/Raspberry%20Pi-3b-cc342d)
+$(echo -e "$hardware_shields")$language_shield
 
 ## How It Works
 
-This recipe uses TJBot capabilities listed above and runs through \`mise run start\`.
-
-## Setup
-
-Install tools and dependencies from this recipe directory.
-
-\`\`\`sh
-mise install
-\`\`\`
+TODO: Describe the recipe's functionality and how it uses TJBot capabilities.
 
 ## Run
 
-Run from anywhere:
+You can run this recipe in one of two ways:
+
+### Run using \`tjbot run\`
+
+Open a Terminal and run the following command from anywhere on your system:
 
 \`\`\`sh
 tjbot run $recipe_slug
 \`\`\`
 
-Or from this recipe directory:
+> 💡 \`mise\` is used to manage software dependencies. It will install any required dependencies automatically the first time you run the recipe.
+
+### Run manually
+
+Open a Terminal and navigate to this recipe's directory. For example, if this recipe is located in \`~/Desktop/$recipe_slug\`, then:
 
 \`\`\`sh
-tjbot run .
+cd ~/Desktop/$recipe_slug
+\`\`\`
+
+Install the recipe's dependencies:
+
+\`\`\`sh
+mise install
+\`\`\`
+
+Then, run the recipe:
+\`\`\`sh
+mise run start
 \`\`\`
 
 ## Customize
 
-### Customization 1
+### Customization 1: TODO
 
-Edit the recipe source code to change default behavior.
+TODO: Add instructions for how users can customize the recipe to change TJBot's behavior in an interesting way.
 
-### Customization 2
+### Customization 2: TODO
 
-Adjust runtime/dependency behavior through \`mise.toml\` and language project files.
+TODO: Add instructions for how users can customize the recipe to change TJBot's behavior in an interesting way.
 
 ## Troubleshoot
 
-If you have problems running this recipe, see the TJBot troubleshooting guide.
+If you are having difficulties in making your TJBot work, please see the [troubleshooting guide](https://github.com/tjbot-ce/tjbot/wiki/Troubleshooting-TJBot).
 
 ## Contribute
 
-If you would like to contribute to TJBot, see the contributor's guide.
+If you would like to contribute to TJBot, please see the [contributor's guide](https://github.com/tjbot-ce/tjbot/wiki/Contributing-to-TJBot).
 
 ## License
 
-$license
+This project is licensed under $license.
 EOF
 }
-# shellcheck enable=all
 
 # Function to generate language starter files
 write_language_starters() {
@@ -484,11 +512,16 @@ write_language_starters() {
 
 import TJBot from 'tjbot';
 
-const tj = new TJBot({
+const tj = new TJBot();
+
+await tj.initialize({
     hardware: {
 ${hardware_lines}
     }
 });
+
+// Add your recipe code here!
+
 EOF
 
         cat > "$recipe_dir/package.json" << EOF
@@ -506,11 +539,6 @@ EOF
   },
   "dependencies": {
     "tjbot": "latest"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "eslint": "^9.39.2",
-    "globals": "^17.0.0"
   }
 }
 EOF
@@ -616,7 +644,7 @@ create_recipe() {
     write_recipe_toml "$recipe_dir" "$recipe_name" "$description" "$author" "$license"
     write_mise_toml "$recipe_dir" "$language"
     write_language_starters "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$language" "$listen" "$see" "$shine" "$speak" "$wave"
-    write_recipe_readme "$recipe_dir" "$recipe_name" "$description" "$recipe_folder" "$license" "$listen" "$see" "$shine" "$speak" "$wave"
+    write_recipe_readme "$recipe_dir" "$recipe_name" "$description" "$recipe_folder" "$license" "$listen" "$see" "$shine" "$speak" "$wave" "$language"
 
     echo ""
     echo -e "${GREEN}Created recipe at: $recipe_dir${NC}"
