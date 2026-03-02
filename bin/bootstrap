@@ -135,9 +135,9 @@ TJBOT_DIR="$TARGET_HOME/.tjbot"
 echo ""
 echo "Installing mise..."
 
-if ! sudo -u "$TARGET_USER" sh -c 'command -v mise' &> /dev/null; then
+if ! sudo -u "$TARGET_USER" sh -lc 'command -v mise' &> /dev/null; then
     echo "Installing mise for user $TARGET_USER..."
-    sudo -u "$TARGET_USER" bash -c 'curl -sLSf https://mise.run | bash'
+    sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://mise.run | sh'
     echo "✓ mise installed successfully"
 else
     echo "✓ mise is already installed for $TARGET_USER"
@@ -149,9 +149,9 @@ fi
 echo ""
 echo "Installing uv..."
 
-if ! sudo -u "$TARGET_USER" sh -c 'command -v uv' >/dev/null 2>&1; then
+if ! sudo -u "$TARGET_USER" sh -lc 'command -v uv' >/dev/null 2>&1; then
     echo "Installing uv for user $TARGET_USER..."
-    sudo -u "$TARGET_USER" bash -c 'curl -sLSf https://astral.sh/uv/install.sh | bash'
+    sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
     echo "✓ uv installed successfully"
 else
     echo "✓ uv is already installed for $TARGET_USER"
