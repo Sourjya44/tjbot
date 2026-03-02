@@ -17,6 +17,15 @@
 # limitations under the License.
 
 # ============================================================================
+# Helper function to check if a command exists for a given user
+# ============================================================================
+command_exists() {
+    local user="$1"
+    local cmd="$2"
+    sudo -u "$user" sh -lc "command -v $cmd" >/dev/null 2>&1
+}
+
+# ============================================================================
 # Make sure this is run as root
 # ============================================================================
 user=$(id -u)
@@ -135,7 +144,7 @@ TJBOT_DIR="$TARGET_HOME/.tjbot"
 echo ""
 echo "Installing mise..."
 
-if ! sudo -u "$TARGET_USER" sh -lc 'command -v mise' &> /dev/null; then
+if ! command_exists "$TARGET_USER" "mise"; then
     echo "Installing mise for user $TARGET_USER..."
     sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://mise.run | sh'
     echo "✓ mise installed successfully"
@@ -149,7 +158,7 @@ fi
 echo ""
 echo "Installing uv..."
 
-if ! sudo -u "$TARGET_USER" sh -lc 'command -v uv' >/dev/null 2>&1; then
+if ! command_exists "$TARGET_USER" "uv"; then
     echo "Installing uv for user $TARGET_USER..."
     sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
     echo "✓ uv installed successfully"
@@ -168,7 +177,7 @@ LATEST_NODE_LTS_VERSION=$(curl -sLSf https://nodejs.org/download/release/index.t
 MIN_NODE_MAJOR="18"
 NEED_NODE_INSTALL=false
 
-if command -v node >/dev/null 2>&1; then
+if command_exists "$TARGET_USER" "node"; then
     NODE_VERSION=$(node --version 2>&1)
     NODE_MAJOR=$(node --version 2>&1 | cut -d '.' -f 1 | cut -d 'v' -f 2)
     if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ]; then
@@ -264,10 +273,12 @@ fi
 echo ""
 echo "Configuring TJBot hardware & software settings..."
 
-if command -v uv >/dev/null 2>&1; then
+if command_exists "$TARGET_USER" "uv"; then
     cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
     sudo -u "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for TJBot configuration, please check your tjbot installation and uv setup" && exit 1)
     sudo -u "$TARGET_USER" uv run config init || (echo "🛑 Failed to run TJBot configuration, please check your tjbot installation and uv setup" && exit 1)
+else
+    echo "🛑 Failed to locate uv command, please check your uv installation"
 fi
 
 # ============================================================================
