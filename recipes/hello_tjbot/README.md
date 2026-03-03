@@ -23,7 +23,7 @@ This recipe demonstrates TJBot's speech capabilities by having it say hello usin
 
 ## Configure
 
-> 🔧 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bootstrapping-TJBot).
+> 🔧 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 ### Install dependencies
 
