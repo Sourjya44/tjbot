@@ -1,4 +1,4 @@
-# Hello, TJBot!
+# Hello, TJBot! <!-- markdownlint-disable-line MD026 -->
 
 > :robot: :speaker: Say hello, TJBot!
 

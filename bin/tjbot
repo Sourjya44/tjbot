@@ -415,9 +415,9 @@ write_recipe_readme() {
     [ "$wave" = "true" ] && hardware_shields+="![Servo](https://img.shields.io/badge/Hardware-Servo-orange)\n"
 
     if [ "$language" = "javascript" ]; then
-        language_shield="![Node.js](https://img.shields.io/badge/Node.js-18%2B-yellow)"
+        language_shield="[![Node.js](https://img.shields.io/badge/Node.js-18%2B-yellow)](https://nodejs.org/)"
     else
-        language_shield="![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)"
+        language_shield="[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)"
     fi
 
     cat > "$recipe_dir/README.md" << EOF
@@ -429,7 +429,7 @@ TODO: Add description here
 
 ## Requirements
 
-![Raspberry Pi 3b](https://img.shields.io/badge/Raspberry%20Pi-3b-cc342d)
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
 $(echo -e "$hardware_shields")$language_shield
 
 ## How It Works
