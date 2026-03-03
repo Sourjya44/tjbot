@@ -11,7 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "tjbot": "file:../../../node-tjbotlib"
+    "tjbot": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

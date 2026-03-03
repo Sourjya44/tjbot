@@ -6,7 +6,7 @@ This recipe provides a simple example for how to make TJBot say hello using Text
 
 ## Requirements
 
-![Raspberry Pi 4](https://img.shields.io/badge/Raspberry%20Pi-4+-red)
+![Raspberry Pi 3B+](https://img.shields.io/badge/Raspberry%20Pi-3B+-red)
 ![Speaker](https://img.shields.io/badge/Hardware-Speaker-brightgreen)
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)
 
@@ -14,13 +14,12 @@ This recipe provides a simple example for how to make TJBot say hello using Text
 
 ## How It Works
 
-This recipe demonstrates TJBot's speech capabilities by having it say hello using text-to-speech synthesis. By default, text-to-speech synthesis runs **locally on the Raspberry Pi** using [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx), a lightweight on-device speech recognition engine that requires no internet connection or cloud API keys.
+This recipe demonstrates TJBot's speech capabilities by having it say hello using text-to-speech synthesis. You can configure your TJBot to use one of the following text-to-speech backends:
 
-This recipe can be also configured to use cloud-based text-to-speech providers:
-
-- [IBM Watson Speech to Text](https://www.ibm.com/products/speech-to-text)
-- [Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text)
-- [Microsoft Azure Speech](https://azure.microsoft.com/en-us/products/cognitive-services/speech-services)
+- [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) is a lightweight on-device speech recognition engine that requires no internet connection or cloud API keys.
+- [IBM Watson Text to Speech](https://www.ibm.com/products/text-to-speech) is a cloud-based text-to-speech service offered by IBM.
+- [Google Cloud Text-to-Speech](https://cloud.google.com/text-to-speech) is a cloud-based text-to-speech service offered by Google.
+- [Microsoft Azure Speech](https://azure.microsoft.com/en-us/products/cognitive-services/speech-services) is a cloud-based text-to-speech service offered by Microsoft.
 
 ## Configure
 
@@ -37,16 +36,16 @@ npm install
 
 ## Run
 
-Run this recipe using the following command.
+Open a Terminal and run the following command from anywhere on your system:
 
 ```sh
-npm start
+tjbot run hello_tjbot
 ```
 
 You should see the following output:
 
 ```sh
-$ npm start
+$ tjbot run hello_tjbot
 
 > hello_tjbot@3.0.0 start
 > node index.js
@@ -75,42 +74,26 @@ You can change how TJBot greets you by editing `index.js` and modifying the text
 
 ```js
 /* Customization 1: Change the greeting message */
-tj.speak('Hello! My name is TJBot and it is very nice to meet you!');
+await tj.speak('Hello! My name is TJBot and it is very nice to meet you!');
 ```
 
 ### Customization 2: Change the voice
 
-Have TJBot speak in a different voice by editing `tjbot.toml`. First, comment out the lines for the Ryan voice by adding a '#' character in front of them:
+Have TJBot speak in a different voice by editing your TJBot configuration. You can do this using the `tjbot config` configuration wizard.
+
+You can also edit the `~/.tjbot/tjbot.toml` configuration file directly. To do this, search for the `[speak.backend.local]` section and change this line:
 
 ```toml
-# Ryan (en_US, male)
-#model = 'vits-piper-en_US-ryan-medium'
-#modelUrl = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-ryan-medium.tar.bz2'
+model = 'vits-piper-en_US-ryan-medium'
 ```
 
-Next, uncomment the lines for the Kathleen voice by removing the '#' character in front of them:
+to this:
 
 ```toml
-# Kathleen (en_US, female)
 model = 'vits-piper-en_US-kathleen-low'
-modelUrl = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kathleen-low.tar.bz2'
 ```
 
-### Customization 3: Use a Cloud-baed TTS service
-
-You can switch the text-to-speech backend used to synthesize TJBot's voice by editing `tjbot.toml` and changing the backend to one of these options:
-
-```toml
-# Customization 3: Try one of these cloud-based TTS services.
-# Be sure to include your credentials in the appropriate file.
-#type = 'ibm-watson-tts'    # store credentials in ibm-credentials.env
-#type = 'google-cloud-tts'  # store credentials in google-credentials.json
-#type = 'azure-tts'         # store credentials in azure-credentials.env
-```
-
-> ⚠️ Be sure to comment out `type = 'local'` to ensure TJBot uses one of the cloud-based TTS backends.
-
-Next, you will need to create an instance of the text to speech service on your cloud provider and download the file containing your API credentials. Place that file either in `tjbot/recipes/hello_tjbot` or `~/.tjbot`.
+You can find a full list of supported voice models in the [configuration guide](https://github.com/tjbot-ce/tjbot/wiki/Configuring-TJBot).
 
 ## Troubleshoot
 

@@ -16,11 +16,13 @@
 
 import TJBot from 'tjbot';
 
-const tj = new TJBot({
+const tj = new TJBot();
+
+await tj.initialize({
     hardware: {
         'speaker': true
     }
 });
 
 /* Customization 1: Change the greeting message */
-tj.speak('Hello! My name is TJBot and it is very nice to meet you!');
+await tj.speak('Hello! My name is TJBot and it is very nice to meet you!');

@@ -465,6 +465,7 @@ mise install
 \`\`\`
 
 Then, run the recipe:
+
 \`\`\`sh
 mise run start
 \`\`\`
