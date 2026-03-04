@@ -436,9 +436,15 @@ $(echo -e "$hardware_shields")$language_shield
 
 TODO: Describe the recipe's functionality and how it uses TJBot capabilities.
 
+## Configure
+
+> 🤖 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+
+TODO: Describe any recipe-specific configuration that users need to do before running. For example, if the recipe requires API keys or custom settings, explain how to set those up here.
+
 ## Run
 
-You can run this recipe in one of two ways:
+You can run this recipe using the \`tjbot\` command or you can run it manually using \`mise\`.
 
 ### Run using \`tjbot run\`
 
@@ -448,9 +454,9 @@ Open a Terminal and run the following command from anywhere on your system:
 tjbot run $recipe_slug
 \`\`\`
 
-> 💡 \`mise\` is used to manage software dependencies. It will install any required dependencies automatically the first time you run the recipe.
+> 💡 \`tjbot\` invokes \`mise\` under the hood, which will automatically install any required software dependencies before running the recipe.
 
-### Run manually
+### Run manually using \`mise\`
 
 Open a Terminal and navigate to this recipe's directory. For example, if this recipe is located in \`~/Desktop/$recipe_slug\`, then:
 
