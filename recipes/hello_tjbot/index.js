@@ -16,9 +16,7 @@
 
 import TJBot from 'tjbot';
 
-const tj = new TJBot();
-
-await tj.initialize({
+const tj = await TJBot.getInstance().initialize({
     hardware: {
         'speaker': true
     }
