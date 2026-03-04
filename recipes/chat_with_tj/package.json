@@ -1,36 +1,21 @@
 {
-  "name": "chat_with_tj",
+  "name": "hello_tjbot",
   "version": "3.0.0",
-  "description": "Chat with TJBot using watsonx.ai!",
-  "keywords": [
-    "tjbot"
-  ],
-  "homepage": "https://github.com/ibmtjbot/tjbot#readme",
-  "bugs": {
-    "url": "https://github.com/ibmtjbot/tjbot/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/ibmtjbot/tjbot.git"
-  },
+  "description": "Hello world, TJBot style.",
   "license": "Apache-2.0",
-  "author": "TJBot <https://ibmtjbot.github.io>",
+  "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "type": "module",
-  "main": "index.mjs",
+  "main": "index.js",
   "scripts": {
-    "start": "sudo node index.mjs",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "update-deps": "npx npm-check-updates",
-    "upgrade-deps": "npx npm-check-updates -u"
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@ibm-cloud/watsonx-ai": "^1.6.10",
-    "tjbot": "file:../../../node-tjbotlib"
+    "tjbot": "^3.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "eslint": "^9.33.0",
-    "eslint-plugin-import": "^2.32.0",
-    "globals": "^16.3.0"
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0"
   }
 }
