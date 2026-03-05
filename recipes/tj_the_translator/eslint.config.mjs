@@ -25,7 +25,9 @@ export default [
       "quotes": ["error", "single"],
       "semi": ["error", "always"],
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "no-console": "off",
+      "max-len": "off"
     }
   }
 ];

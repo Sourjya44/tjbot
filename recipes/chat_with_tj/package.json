@@ -1,21 +1,27 @@
 {
-  "name": "hello_tjbot",
+  "name": "chat_with_tj",
   "version": "3.0.0",
-  "description": "Hello world, TJBot style.",
+  "description": "Chat with TJBot using IBM watsonx.ai.",
   "license": "Apache-2.0",
   "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "type": "module",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
-    "start": "node index.js",
+    "start": "tsx index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@ibm-cloud/watsonx-ai": "^1.7.9",
     "tjbot": "^3.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "eslint": "^9.39.2",
-    "globals": "^17.0.0"
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
   }
 }

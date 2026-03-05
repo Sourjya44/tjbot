@@ -16,11 +16,47 @@
 import TJBot from 'tjbot';
 import AssistantV2 from 'ibm-watson/assistant/v2.js';
 
-// keep track of the session id for watsonx Assistant
-let environmentId = undefined;
-let assistantSessionId = undefined;
+// read recipe-specific config
+const config = TJBot.loadRecipeConfig();
 
-async function converse(message) {
+// these are the hardware capabilities that TJ needs for this recipe
+const hardware = [
+    TJBot.Hardware.MICROPHONE,
+    TJBot.Hardware.SPEAKER,
+    TJBot.Hardware.SERVO
+];
+
+let hasLED = false;
+if (config.useNeoPixelLED) {
+    hardware.push(TJBot.Hardware.LED_NEOPIXEL);
+    hasLED = true;
+}
+if (config.useCommonAnodeLED) {
+    hardware.push(TJBot.Hardware.LED_COMMON_ANODE);
+    hasLED = true;
+}
+
+// this recipe requires an LED
+if (!hasLED) {
+    throw Error('this recipe requires an LED. please configure your TJBot with an LED and update your tjbot.toml file accordingly.');
+}
+
+// create an instance of the watsonx Assistant service
+const assistant = new AssistantV2({
+    serviceName: 'assistant',
+    version: '2024-08-25',
+});
+
+// instantiate our TJBot!
+const tj = await TJBot.getInstance().initialize({
+    hardware: hardware
+});
+
+// keep track of the session id for watsonx Assistant
+let environmentId = config.environmentId;
+let assistantSessionId: string | undefined = undefined;
+
+async function converse(message: string) {
     // set up the session if needed
     if (!assistantSessionId) {
         try {
@@ -41,13 +77,13 @@ async function converse(message) {
         assistantId: environmentId,
         sessionId: assistantSessionId,
         input: {
-            'message_type': 'text',
+            'message_type': 'text' as const,
             'text': message,
             'options': {
                 'return_context': true
             }
         }
-    }
+    };
 
     // send to Assistant service
     try {
@@ -68,7 +104,7 @@ async function converse(message) {
         const assistantResponse = {
             object: result.output,
             description: responseText,
-            action: result.context.skills['actions skill'].skill_variables.tj_action
+            action: result.context?.skills?.['actions skill']?.skill_variables?.tj_action
         };
         console.log(`received response from assistant: ${JSON.stringify(responseText)}`);
         return assistantResponse;
@@ -78,10 +114,10 @@ async function converse(message) {
     }
 }
 
-async function followAction(action) {
+async function followAction(action: string | undefined, response: { description: string }, utterance: string) {
     // figure out what action they asked us to do
     // check if a variable to control the bot was found
-    var followed = false;
+    let followed = false;
     if (action !== undefined) {
         switch (action) {
             case 'lower-arm':
@@ -110,8 +146,8 @@ async function followAction(action) {
                     const regex = /(aqua|red|green|white|blue|orange|yellow|violet|pink|on|off)/g;
 
                     if (utterance.match(regex)) {
-                        const color = utterance.match(regex)[0];
-                        console.log("color found! ", color);
+                        const color = utterance.match(regex)![0];
+                        console.log('color found! ', color);
                         await tj.speak(response.description);
                         tj.shine(color);
                         followed = true;
@@ -128,95 +164,54 @@ async function followAction(action) {
     }
 }
 
-async function main() {
-    // read recipe-specific config
-    const config = TJBot.loadRecipeConfig();
+const instructions = `
+Let's play Simon Says! Tell me what to do and I will do my best to follow.
+I can shine my light different colors, move my arm up and down, and repeat 
+things that you say. Don't forget to say "Simon Says"! When you want to stop 
+playing, just say "Stop".
+`;
 
-    // these are the hardware capabilities that TJ needs for this recipe
-    const hardware = [
-        TJBot.Hardware.MICROPHONE,
-        TJBot.Hardware.SPEAKER,
-        TJBot.Hardware.SERVO
-    ];
+// ready!
+console.log('TJBot is ready for Simon Says!');
+console.log("Say 'stop' or press ctrl-c to exit this recipe.");
 
-    let hasLED = false;
-    if (config.useNeoPixelLED) {
-        hardware.push(TJBot.Hardware.LED_NEOPIXEL);
-        hasLED = true;
-    }
-    if (config.useCommonAnodeLED) {
-        hardware.push(TJBot.Hardware.LED_COMMON_ANODE);
-        hasLED = true;
-    }
+// speak the instructions
+await tj.speak(instructions);
 
-    // this recipe requires an LED
-    if (!hasLED) {
-        throw Error('this recipe requires an LED. please configure your TJBot with an LED and update your tjbot.toml file accordingly.');
+// now we play the game :)
+while (true) {
+    const msg = await tj.listen();
+
+    if (msg === undefined || msg === '') {
+        continue;
     }
 
-    // create an instance of the watsonx Assistant service
-    const assistant = new AssistantV2({
-        serviceName: 'assistant',
-        version: '2024-08-25',
-    });
+    const msgLower = msg.toLowerCase();
 
-    // instantiate our TJBot!
-    const tj = new TJBot();
-    tj.initialize(hardware);
+    if (msgLower === 'stop') {
+        console.log('Goodbye!');
+        process.exit(0);
+    }
 
-    const instructions = ```
-    Let's play Simon Says! Tell me what to do and I will do my best to follow.
-    I can shine my light different colors, move my arm up and down, and repeat 
-    things that you say. Don't forget to say "Simon Says"! When you want to stop 
-    playing, just say "Stop".
-    ```;
+    // send to the assistant service
+    const response = await converse(msg);
 
-    // ready!
-    console.log('TJBot is ready for Simon Says!');
-    console.log("Say 'stop' or press ctrl-c to exit this recipe.");
+    // check to see if they said "Simon Says"
+    if (msgLower.startsWith('simon says')) {
+        // they said "simon says" so lets try to follow it
+        await followAction(response.action, response, msg);
+    } else {
+        // they didn't say "simon says", but we might still follow the instruction
+        const rand = Math.random();
+        if (rand > config.followLikelihood) {
+            // follow it
+            await followAction(response.action, response, msg);
 
-    // speak the instructions
-    await tj.speak(instructions);
-
-    // now we play the game :)
-    while (true) {
-        const msg = await tj.listen().toLowerCase();
-
-        if (msg === 'stop') {
-            console.log('Goodbye!');
-            process.exit(0);
-        }
-
-        // send to the assistant service
-        const response = await converse(msg);
-
-        // check to see if they said "Simon Says"
-        if (msg.startsWith('simon says')) {
-            // they said "simon says" so lets try to folow it
-            await followAction(response.action);
+            // and then end the game
+            await tj.speak("oh no, you didn't say simon says! good game!");
         } else {
-            // they didn't say "simon says", but we might still follow the instruction
-            const rand = Math.random();
-            if (rand > config.followLikelihood) {
-                // follow it
-                await followAction(response.action);
-
-                // and then end the game
-                await tj.speak("oh no, you didn't say simon says! good game!")
-            } else {
-                // don't follow it, they didn't say simon says!
-                await tj.speak("you didn't say simon says! let's keep going.");
-            }
+            // don't follow it, they didn't say simon says!
+            await tj.speak("you didn't say simon says! let's keep going.");
         }
     }
 }
-
-// this is a little magic to avoid calling await at the top level,
-// which node frowns upon
-(async () => {
-    try {
-        await main();
-    } catch (e) {
-        console.log(e);
-    }
-})();

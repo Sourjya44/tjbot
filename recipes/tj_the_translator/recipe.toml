@@ -1,0 +1,10 @@
+[recipe]
+name = "tj_the_translator"
+description = "Translate to other languages with TJBot using watsonx.ai!"
+version = "3.0.0"
+author = "TJBot <https://ibmtjbot.github.io>"
+license = "Apache-2.0"
+
+# Recipe-specific configuration
+# Add any custom configuration options your recipe needs here.
+[config]

@@ -1,0 +1,11 @@
+[tools]
+node = ">=18"
+
+[tasks.install]
+run = "npm install"
+description = "Install recipe dependencies"
+
+[tasks.start]
+depends = ["install"]
+run = "npm start"
+description = "Run recipe"

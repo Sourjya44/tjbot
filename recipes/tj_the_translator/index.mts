@@ -1,6 +1,5 @@
 /**
- * Copyright 2024-2025 IBM Corp. All Rights Reserved.
- * Copyright 2026-present TJBot Contributors. All Rights Reserved.
+ * Copyright 2024 IBM Corp. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 import TJBot from 'tjbot';
 import { WatsonXAI } from '@ibm-cloud/watsonx-ai';
-
-const BASE_PROMPT = `
-You are TJBot, a friendly and helpful social robot made out of cardboard.
-You are having a conversation with a human.
-You provide friendly and helpful responses to everything the human says.
-You respond to their questions in a professional manner.
-You never use inappropriate language like swear words or hate speech.
-You aim to be delightful and energetic in your responses.
-If you don't know the answer to a question, you respond truthfully that you do not know.
-`;
 
 // read recipe-specific config
 const config = TJBot.loadRecipeConfig();
@@ -53,9 +41,6 @@ const wxai = WatsonXAI.newInstance({
     version: config.serviceVersion,
 });
 
-// keep track of the conversational history
-let conversationHistory = '';
-
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
     hardware: hardware
@@ -64,6 +49,9 @@ const tj = await TJBot.getInstance().initialize({
 // ready!
 console.log('TJBot is ready for conversation!');
 console.log("Say 'stop' or press ctrl-c to exit this recipe.");
+await tj.speak(`Hello! I'm T J Bot. What language would you like to translate to?`);
+let language = await tj.listen();
+await tj.speak(`Ok. I will be ready to translate your phrase to ${language} when my light turns green.`);
 
 while (true) {
     console.log('👂 listening...');
@@ -92,28 +80,30 @@ while (true) {
 
     // build the prompt
     const prompt = `
-${BASE_PROMPT}
+You are TJBot, a friendly and helpful social robot made out of cardboard.
+You are acting as a translator with a human.
+You provide friendly and helpful responses to everything the human says.
+You never use inappropriate language like swear words or hate speech.
+You aim to be delightful and energetic in your responses.
+Take the input phrase and then translate it to ${language}.
+Your only output should be the final translated text.
 
-Conversation summary:
-${conversationHistory}
-
-Conversation:
-
-Human: ${msg}
-AI: `;
+Input: ${msg}.
+Output: 
+ `;
 
     const params = {
         input: prompt,
         modelId: config.modelId,
         projectId: config.projectId,
         parameters: {
-            decoding_method: config.modelDecodingMethod || 'greedy',
-            temperature: config.modelTemperature || 0.7,
-            random_seed: config.modelRandomSeed || 42,
-            min_new_tokens: config.modelMinNewTokens || 0,
-            max_new_tokens: config.modelMaxNewTokens || 200,
-            stop_sequences: ['.'],
-            repetition_penalty: config.modelRepetitionPenalty || 1.0,
+            decoding_method: config.modelDecodingMethod,
+            temperature: config.modelTemperature,
+            random_seed: config.modelRandomSeed,
+            min_new_tokens: config.modelMinNewTokens,
+            max_new_tokens: config.modelMaxNewTokens,
+            stop_sequences: config.modelStopSequences,
+            repetition_penalty: config.modelRepetitionPenalty,
         },
     };
 
@@ -130,9 +120,6 @@ AI: `;
         }
         await tj.speak(text);
         console.log('🗯️ speaking finished');
-
-        // add to the conversation history
-        conversationHistory += `Human: ${msg}\n AI: ${text}\n\n`;
     } catch (err) {
         console.warn(`⚠️ > ${err}`);
     }
