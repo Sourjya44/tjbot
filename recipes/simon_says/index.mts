@@ -166,8 +166,8 @@ async function followAction(action: string | undefined, response: { description:
 
 const instructions = `
 Let's play Simon Says! Tell me what to do and I will do my best to follow.
-I can shine my light different colors, move my arm up and down, and repeat 
-things that you say. Don't forget to say "Simon Says"! When you want to stop 
+I can shine my light different colors, move my arm up and down, and repeat
+things that you say. Don't forget to say "Simon Says"! When you want to stop
 playing, just say "Stop".
 `;
 

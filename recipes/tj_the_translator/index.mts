@@ -89,7 +89,7 @@ Take the input phrase and then translate it to ${language}.
 Your only output should be the final translated text.
 
 Input: ${msg}.
-Output: 
+Output:
  `;
 
     const params = {

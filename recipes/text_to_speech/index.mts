@@ -37,7 +37,7 @@ console.log('Type your message in the prompt below to have TJBot speak it!');
 // prompt the user for input and respond
 while (true) {
     const message = readlineSync.question('💬: ');
-    
+
     // If the user types 'stop', exit the loop and close the interface
     if (message.toLowerCase() === 'stop') {
         console.log('🤖: Goodbye!');
