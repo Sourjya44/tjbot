@@ -121,6 +121,7 @@ echo ""
 
 PACKAGES=(
     libgpiod-dev
+    liblgpiod-dev
     rpicam-apps-lite
     tidy
 )
@@ -174,7 +175,7 @@ echo ""
 # Get the first version in the list where the 10th column (LTS) is not "-"
 LATEST_NODE_LTS_VERSION=$(curl -sLSf https://nodejs.org/download/release/index.tab | \
   awk '($10 != "-" && NR != 1) { print $1; exit }' | cut -d '.' -f 1 | cut -d 'v' -f 2)
-MIN_NODE_MAJOR="18"
+MIN_NODE_MAJOR="20"
 NEED_NODE_INSTALL=false
 
 if command_exists "$TARGET_USER" "node"; then
