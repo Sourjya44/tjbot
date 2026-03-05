@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-yellow)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)
 [![GitHub Stars](https://img.shields.io/github/stars/tjbot-ce/tjbot)](https://github.com/tjbot-ce/tjbot)
 

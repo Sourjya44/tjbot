@@ -416,7 +416,7 @@ write_recipe_readme() {
 
     if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
         # Add Node.js shield for both JS and TS
-        language_shield="[![Node.js](https://img.shields.io/badge/Node.js-18%2B-yellow)](https://nodejs.org/)"
+        language_shield="[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)"
 
         # Add language-specific shield
         if [ "$language" = "javascript" ]; then
