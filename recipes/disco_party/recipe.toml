@@ -1,0 +1,6 @@
+# Recipe-specific configuration
+# Add any custom configuration options your recipe needs here.
+
+# LED configuration
+useNeoPixelLED = true      # set to true if using a NeoPixel LED
+useCommonAnodeLED = false  # set to true if using a Common Anode LED
