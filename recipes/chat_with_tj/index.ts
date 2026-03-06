@@ -37,9 +37,6 @@ const wxai = WatsonXAI.newInstance({
     version: config.serviceVersion as string | undefined,
 });
 
-// check if the user has configured an LED
-const hasLED = config.useNeoPixelLED || config.useCommonAnodeLED;
-
 // keep track of the conversational history
 let conversationHistory = '';
 
@@ -48,7 +45,7 @@ const tj = await TJBot.getInstance().initialize({
     hardware: {
         microphone: true,
         speaker: true,
-        led: hasLED
+        led: config.hasLED
     }
 });
 
@@ -68,13 +65,13 @@ process.on('SIGINT', () => {
 while (true) {
     console.log('👂 listening...');
 
-    if (hasLED) {
+    if (config.hasLED) {
         tj.shine('green');
     }
 
     let msg = await tj.listen();
 
-    if (hasLED) {
+    if (config.hasLED) {
         tj.pulse('orange');
     }
 
@@ -125,7 +122,7 @@ AI: `;
         console.log(`🤖 > ${text}`);
 
         console.log('🗯️ speaking...');
-        if (hasLED) {
+        if (config.hasLED) {
             tj.pulse('yellow');
         }
         await tj.speak(text);
