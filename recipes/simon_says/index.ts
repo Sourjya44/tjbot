@@ -1,5 +1,6 @@
 /**
- * Copyright 2024 IBM Corp. All Rights Reserved.
+ * Copyright 2024-2025 IBM Corp. All Rights Reserved.
+ * Copyright 2026-present TJBot Contributors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,33 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import TJBot from 'tjbot';
 import AssistantV2 from 'ibm-watson/assistant/v2.js';
 
 // read recipe-specific config
-const config = TJBot.loadRecipeConfig();
-
-// these are the hardware capabilities that TJ needs for this recipe
-const hardware = [
-    TJBot.Hardware.MICROPHONE,
-    TJBot.Hardware.SPEAKER,
-    TJBot.Hardware.SERVO
-];
-
-let hasLED = false;
-if (config.useNeoPixelLED) {
-    hardware.push(TJBot.Hardware.LED_NEOPIXEL);
-    hasLED = true;
-}
-if (config.useCommonAnodeLED) {
-    hardware.push(TJBot.Hardware.LED_COMMON_ANODE);
-    hasLED = true;
-}
-
-// this recipe requires an LED
-if (!hasLED) {
-    throw Error('this recipe requires an LED. please configure your TJBot with an LED and update your tjbot.toml file accordingly.');
-}
+const config = TJBot.getRecipeConfig();
 
 // create an instance of the watsonx Assistant service
 const assistant = new AssistantV2({
@@ -49,32 +29,48 @@ const assistant = new AssistantV2({
 
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
-    hardware: hardware
+    hardware: {
+        microphone: true,
+        speaker: true,
+        led: true
+    }
 });
 
 // keep track of the session id for watsonx Assistant
-let environmentId = config.environmentId;
+const assistantId = config.assistantId as string;
+const environmentId = config.environmentId as string;
+const followLikelihood = config.followLikelihood as number;
+
+if (!assistantId || assistantId.trim() === '') {
+    throw new Error('assistantId is required. Please define it in recipe.toml.');
+}
+if (!environmentId || environmentId.trim() === '') {
+    throw new Error('environmentId is required. Please define it in recipe.toml.');
+}
+
 let assistantSessionId: string | undefined = undefined;
 
 async function converse(message: string) {
     // set up the session if needed
-    if (!assistantSessionId) {
+    if (assistantSessionId === undefined) {
         try {
-            console.log('creating new watsonx Assistant session...');
+            console.log('Creating new watsonx Assistant session...');
             const body = await assistant.createSession({
-                assistantId: environmentId
+                assistantId: assistantId,
+                environmentId: environmentId
             });
-            console.log('success!');
+            console.log('Success!');
             assistantSessionId = body.result.session_id;
         } catch (err) {
-            console.error('an error occured while creating a session for watsonx Assistant. Please check that the environmentId in tjbot.toml is defined.');
+            console.error('An error occurred while creating a session for watsonx Assistant. Please check that the environmentId is defined in recipe.toml.');
             throw err;
         }
     }
 
     // define the conversational turn
     const turn = {
-        assistantId: environmentId,
+        assistantId: assistantId,
+        environmentId: environmentId,
         sessionId: assistantSessionId,
         input: {
             'message_type': 'text' as const,
@@ -91,16 +87,10 @@ async function converse(message: string) {
         console.log(`response from assistant.message(): ${JSON.stringify(body)}`);
         const { result } = body;
 
-        // this might not be necessary but in the past, conversational replies
-        // came in through result.output.text, not result.output.generic
-        let response;
-        if (result.output.generic) {
-            response = result.output.generic;
-        } else if (result.output.text) {
-            response = result.output.text;
-        }
+        // get the response from the generic output
+        const response = result.output.generic || [];
 
-        const responseText = response.length > 0 ? response[0].text : '';
+        const responseText = (response[0] && 'text' in response[0] ? response[0].text : '') as string;
         const assistantResponse = {
             object: result.output,
             description: responseText,
@@ -164,16 +154,26 @@ async function followAction(action: string | undefined, response: { description:
     }
 }
 
+// ready!
+console.log('==============');
+console.log('  SIMON SAYS  ');
+console.log('==============');
+console.log("Let's play Simon Says!");
+console.log();
+console.log("Say 'stop' or press ctrl-c to exit this recipe.");
+
+// gracefully handle Ctrl-C
+process.on('SIGINT', () => {
+    console.log('\nGoodbye!');
+    process.exit(0);
+});
+
 const instructions = `
 Let's play Simon Says! Tell me what to do and I will do my best to follow.
 I can shine my light different colors, move my arm up and down, and repeat
 things that you say. Don't forget to say "Simon Says"! When you want to stop
 playing, just say "Stop".
 `;
-
-// ready!
-console.log('TJBot is ready for Simon Says!');
-console.log("Say 'stop' or press ctrl-c to exit this recipe.");
 
 // speak the instructions
 await tj.speak(instructions);
@@ -203,7 +203,7 @@ while (true) {
     } else {
         // they didn't say "simon says", but we might still follow the instruction
         const rand = Math.random();
-        if (rand > config.followLikelihood) {
+        if (rand > followLikelihood) {
             // follow it
             await followAction(response.action, response, msg);
 

@@ -1,10 +1,8 @@
-[recipe]
-name = "simon_says"
-description = "TJBot plays Simon Says, powered by IBM watsonx Assistant"
-version = "3.0.0"
-author = "TJBot <https://ibmtjbot.github.io>"
-license = "Apache-2.0"
-
 # Recipe-specific configuration
 # Add any custom configuration options your recipe needs here.
-[config]
+assistantId = '' # fill in with your watsonx Assistant ID
+environmentId = '' # fill in with your watsonx Assistant environment ID
+
+# Customization 1: Change the likelihood that TJBot follows an instruction
+# when "Simon Says" wasn't said (range: [0.0, 1.0])
+followLikelihood = 0.2

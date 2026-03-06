@@ -1,34 +1,40 @@
 # Simon Says
-> Play Simon Says with TJBot!
 
-This recipe uses the [watsonx Assistant](https://www.ibm.com/products/watsonx-assistant), [Speech to Text](https://www.ibm.com/products/speech-to-text), and [Text to Speech](https://www.ibm.com/products/text-to-speech/) services to turn TJ into a chatting robot.
+> 🎮 🤖 Play Simon Says with TJBot!
 
-## Hardware
-This recipe requires a TJBot with a microphone, a speaker, an LED, and a servo.
+This recipe uses the IBM [watsonx Assistant](https://www.ibm.com/products/watsonx-assistant) service to help TJBot play the game of Simon Says!
 
-> 💡 If you have a Common Anode LED, change `TJBot.Hardware.LED_NEOPIXEL` to `TJBot.Hardware.LED_COMMON_ANODE` in `conversation.js`
+## Requirements
 
-> 📌 By default, TJBot expects Neopixel LEDs to be connected to GPIO PIN 18 and Common Anode LEDs to be connected to GPIO pins 19 (red), 13 (green), and 12 (blue). You may set which pins your LED is connected to by uncommenting the `tjConfig.shine = {...}` code block. See [https://pinout.xyz](https://pinout.xyz) for a complete pin diagram.
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
+![LED](https://img.shields.io/badge/Hardware-LED-orange)
+![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)
+![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)
 
-> 👋 By default, TJBot expects the servo to be connected to GPIO PIN 7. You may set which pin your servo is connected to by uncommenting the `tjConfig.wave = {...}` code block. See [https://pinout.xyz](https://pinout.xyz) for a complete pin diagram.
+> [!CAUTION]
+> We recommend a Raspberry Pi 4+ for local TTS synthesis. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
 
-## Build and Run
-First, make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+## How it Works
 
-Next, go to the `recipes/conversation_watsonxassistant` folder and install the dependencies.
+IBM's [watsonx Assistant](https://www.ibm.com/products/watsonx-assistant) service is used to understand the commands you tell TJBot. TJBot listens to your voice using its microphone and uses a speech-to-text service to convert your speech into text. Next, that text is passed to watsonx Assistant which determines what you are trying to tell it to do, such as "wave your arm," "shine your light," or "repeat after me."
 
-    $ cd tjbot/recipes/conversation_watsonxassistant
-    $ npm install
+## Configure
 
-### Create instances of IBM Cloud AI services
-Create instances of the [watsonx Assistant](https://cloud.ibm.com/catalog/services/watsonx-assistant), [Speech to Text](https://cloud.ibm.com/catalog/services/speech-to-text), and [Text to Speech](https://cloud.ibm.com/catalog/services/text-to-speech) services. Download the authentication credentials file for each service. Combine each of these files into a single file named `ibm-credentials.env` and place it in the `tjbot/recipes/translator` folder. See `ibm-credentials.sample.env` for an example.
+> [!CAUTION]
+> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
 
-Next, make a copy of TJBot's sample configuration file.
+As this recipe demonstrates how to use IBM's [watsonx Assistant](https://www.ibm.com/products/watsonx-assistant) service, you will need to register for an IBM Cloud account.
 
-```sh
-$ cp tjbot.sample.toml tjbot.toml
-$ nano tjbot.toml
-```
+### Register for an IBM Cloud account
+
+If you do not already have an IBM Cloud account, [register for one](https://cloud.ibm.com/).
+
+### Configure watsonx Assistant
+
+> [!WARNING]
+> TBD: These instructions need to be updated
 
 Set up Watson Assistant using the following steps:
 
@@ -39,40 +45,68 @@ Set up Watson Assistant using the following steps:
 5. Click "API Details" in the left sidebar.
 6. Copy the "Assistant ID".
 
-In the `[Recipe]` section of your `tjbot.toml` file, fill in the `environmentId` configuration parameter with the Assistant ID you just retrieved.
+In your `recipe.toml` file, fill in the `assistantId` and `environmentId` parameters with the Assistant ID you just retrieved.
 
-Run!
+## Run
 
-    $ sudo npm start
+You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
 
-> Note the `sudo` command. Root user access is required to run TJBot recipes.
+### Run using `tjbot run`
 
-watsonx Assistant uses actions to route the flow of a conversation. For example when you ask TJBot "Please introduce yourself", the action is to make an introduction. You can add your own new actions, but for now, we have started you off with a few actions:
+Open a Terminal and run the following command from anywhere on your system:
 
-- Introduction. You can say phrases such as "Tinker, please introduce yourself", "Tinker, who are you", and "Tinker, can you introduce yourself"
-- Joke. You can ask "Tinker, please tell me a joke" or "Tinker, I would like to hear a joke".
-- Raise your arm. You can ask "Tinker, raise your arm" or "Tinker, lift your arm".
+```sh
+tjbot run simon_says
+```
 
-To see the entire list, explore the watsonx Assistant actions tab in the IBM Cloud UI.
+> [!NOTE]
+> `tjbot` invokes `mise` under the hood, which will automatically install any required software dependencies before running the recipe.
 
-An **attention word** is used so TJBot knows you are talking to it. The default attention word is 'tinker', but you can change it in `tjbot.toml` by changing `robotName`:
+You should see the following output:
 
-    export default {
-        assistantId: '', // add your assistant id from Watson Assistant
-        hasCamera: true, // set this to false if your TJBot doesn't have a camera
-        robotName: 'tinker', // set this to the name you wish to use to address your tjbot!
-    }
+```sh
+$ tjbot run simon_says
+
+> simon_says@3.0.0 start
+> tsx index.ts
+
+TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+```
+
+> [!IMPORTANT]
+> The first time you run this script, your TJBot may download a Text to Speech and Speech to Text models. These downloads may take a little time, please be patient!
+
+### Run manually using `mise`
+
+Open a Terminal, navigate to this recipe's directory, and run using `mise`.
+
+```sh
+cd ~/.tjbot/recipes/simon_says
+mise run start
+```
+
+## Customize
+
+### Customization 1: Try a different LLM
+
+Want to try a different large language model? Check out the [full list of large language models](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-api-model-ids.html?context=wx&audience=wdp) supported by watsonx.ai. and then change the `modelId` parameter in your `recipe.toml` file.
+
+```toml
+modelId = 'meta-llama/llama-3-70b-instruct'
+```
+
+### Customization 2: Change the LLM parameters
+
+You can also try changing different [model parameters](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-parameters.html?context=wx&audience=wdp), such as the `modelDecodingMethod` and the `modelTemperature` to change how TJBot responds to you.
 
 ## Troubleshoot
-If you are having difficulties in making this recipe work, please see the [troubleshooting guide](../../TROUBLESHOOTING.md).
 
-# Watson Services
-- [watsonx Assistant](https://www.ibm.com/products/watsonx-assistant)
-- [Text to Speech](https://www.ibm.com/products/text-to-speech/)
-- [Speech to Text](https://www.ibm.com/products/speech-to-text)
+If you are having difficulties in making your TJBot work, please see the [troubleshooting guide](https://github.com/tjbot-ce/tjbot/wiki/Troubleshooting-TJBot).
 
-# License
+## Contribute
+
+If you would like to contribute to TJBot, please see the [contributor's guide](https://github.com/tjbot-ce/tjbot/wiki/Contributing-to-TJBot).
+
+## License
+
 This project is licensed under Apache 2.0. Full license text is available in [LICENSE](../../LICENSE).
-
-# Contributing
-See [CONTRIBUTING.md](../../CONTRIBUTING.md).
