@@ -5,8 +5,7 @@ serviceUrl = 'https://us-south.ml.cloud.ibm.com' # CHANGE THIS IF YOUR SERVICEUR
 serviceVersion = '2024-05-31'
 
 # LED configuration
-useNeoPixelLED = false     # set to true if using a NeoPixel LED
-useCommonAnodeLED = false  # set to true if using a Common Anode LED
+useLED = false     # set to true if using an LED
 
 # Customization 1: change the LLM model
 # see https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-models.html?context=wx&audience=wdp
