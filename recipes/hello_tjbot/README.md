@@ -10,7 +10,8 @@ This recipe provides a simple example for how to make TJBot say hello using Text
 ![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 
-> ⚠️ We recommend a Raspberry Pi 4+ for local TTS synthesis. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
+> [!CAUTION]
+> We recommend a Raspberry Pi 4+ for local TTS synthesis. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
 
 ## How It Works
 
@@ -23,7 +24,8 @@ This recipe demonstrates TJBot's speech capabilities by having it say hello usin
 
 ## Configure
 
-> 🔧 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
+> [!CAUTION]
+> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 ## Run
 

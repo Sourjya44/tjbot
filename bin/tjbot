@@ -435,7 +435,8 @@ TODO: Describe the recipe's functionality and how it uses TJBot capabilities.
 
 ## Configure
 
-> 🤖 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+> [!CAUTION]
+> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
 
 TODO: Describe any recipe-specific configuration that users need to do before running. For example, if the recipe requires API keys or custom settings, explain how to set those up here.
 

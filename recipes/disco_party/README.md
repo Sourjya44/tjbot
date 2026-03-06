@@ -11,7 +11,8 @@ This recipe uses speech-to-text to let you control the color of TJBot's LED with
 ![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 
-> ⚠️ We recommend a Raspberry Pi 4+ for local STT recognition. The recipe will work on other Raspberry Pi hardware using one of the cloud-based STT backends.
+> [!CAUTION]
+> We recommend a Raspberry Pi 4+ for local STT recognition. The recipe will work on other Raspberry Pi hardware using one of the cloud-based STT backends.
 
 ## How It Works
 
@@ -24,7 +25,8 @@ This recipe demonstrates TJBot's capabilities to recognize speech by having it l
 
 ## Configure
 
-> 🔧 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
+> [!CAUTION]
+> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 ## Run
 
