@@ -1,3 +1,5 @@
+# Recipe-specific configuration
+# Add any custom configuration options your recipe needs here.
 projectId = '' # FILL IN WITH YOUR WATSONX.AI PROJECT ID
 serviceUrl = 'https://us-south.ml.cloud.ibm.com' # CHANGE THIS IF YOUR SERVICEURL IS IN A DIFFERENT REGION
 serviceVersion = '2024-05-31'

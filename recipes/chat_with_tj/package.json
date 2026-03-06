@@ -1,7 +1,7 @@
 {
   "name": "chat_with_tj",
   "version": "3.0.0",
-  "description": "Chat with TJBot using IBM watsonx.ai.",
+  "description": "Chat with TJBot using IBM watsonx.ai",
   "license": "Apache-2.0",
   "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "type": "module",
