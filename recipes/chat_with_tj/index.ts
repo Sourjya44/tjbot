@@ -59,6 +59,12 @@ console.log('================');
 console.log('TJBot is ready for conversation!');
 console.log("Say 'stop' or press ctrl-c to exit this recipe.");
 
+// gracefully handle Ctrl-C
+process.on('SIGINT', () => {
+    console.log('\nGoodbye!');
+    process.exit(0);
+});
+
 while (true) {
     console.log('👂 listening...');
 

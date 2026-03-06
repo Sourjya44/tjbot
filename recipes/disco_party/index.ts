@@ -63,6 +63,12 @@ console.log("You can tell me to shine my light a different color by saying 'turn
 console.log("You can also say 'disco party' to have a disco party!");
 console.log("Say 'stop' or press Ctrl-C to exit this recipe.");
 
+// gracefully handle Ctrl-C
+process.on('SIGINT', () => {
+    console.log('\nGoodbye!');
+    process.exit(0);
+});
+
 // listen for speech
 while (true) {
     const msg = await tj.listen();
