@@ -10,6 +10,7 @@ This recipe uses IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) ser
 ![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)
 ![LED](https://img.shields.io/badge/Hardware-LED%20(Optional)-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)
 
 > [!CAUTION]
 > We recommend a Raspberry Pi 4+ for local TTS synthesis. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.

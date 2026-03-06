@@ -10,6 +10,7 @@ This recipe uses speech-to-text to let you control the color of TJBot's LED with
 ![LED](https://img.shields.io/badge/Hardware-LED-orange)
 ![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)
 
 > [!CAUTION]
 > We recommend a Raspberry Pi 4+ for local STT recognition. The recipe will work on other Raspberry Pi hardware using one of the cloud-based STT backends.

@@ -395,7 +395,7 @@ write_recipe_readme() {
     local language="${11}"
 
     local hardware_shields=""
-    local language_shield=""
+    local language_shields=""
 
     [ "$listen" = "true" ] && hardware_shields+="![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)\n"
     [ "$see" = "true" ] && hardware_shields+="![Camera](https://img.shields.io/badge/Hardware-Camera-orange)\n"
@@ -405,16 +405,16 @@ write_recipe_readme() {
 
     if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
         # Add Node.js shield for both JS and TS
-        language_shield="[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)"
+        language_shields="[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)\n"
 
         # Add language-specific shield
         if [ "$language" = "javascript" ]; then
-            language_shield+=" [![JavaScript](https://img.shields.io/badge/JavaScript-323330?style=flat&logo=javascript)](https://javascript.org/)"
+            language_shields+=" [![JavaScript](https://img.shields.io/badge/JavaScript-323330?style=flat&logo=javascript)](https://javascript.org/)\n"
         elif [ "$language" = "typescript" ]; then
-            language_shield+=" [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)"
+            language_shields+=" [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)"
         fi
     elif [ "$language" = "python" ]; then
-        language_shield="[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)"
+        language_shields="[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)\n"
     fi
 
     cat > "$recipe_dir/README.md" << EOF
@@ -427,7 +427,8 @@ TODO: Add description here
 ## Requirements
 
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
-$(echo -e "$hardware_shields")$language_shield
+$(echo -e "$hardware_shields")
+$(echo -e "$language_shields")
 
 ## How It Works
 
@@ -516,11 +517,11 @@ write_language_starters() {
     if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
         # Build hardware config based on capabilities
         local hardware_lines=""
-        [ "$listen" = "true" ] && hardware_lines+="        'microphone': true,\n"
-        [ "$see" = "true" ] && hardware_lines+="        'camera': true,\n"
-        [ "$shine" = "true" ] && hardware_lines+="        'led': true,\n"
-        [ "$speak" = "true" ] && hardware_lines+="        'speaker': true,\n"
-        [ "$wave" = "true" ] && hardware_lines+="        'servo': true,\n"
+        [ "$listen" = "true" ] && hardware_lines+="        microphone: true,\n"
+        [ "$see" = "true" ] && hardware_lines+="        camera: true,\n"
+        [ "$shine" = "true" ] && hardware_lines+="        led: true,\n"
+        [ "$speak" = "true" ] && hardware_lines+="        speaker: true,\n"
+        [ "$wave" = "true" ] && hardware_lines+="        servo: true,\n"
 
         # Remove trailing comma from last line
         hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
