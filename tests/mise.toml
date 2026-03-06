@@ -1,0 +1,38 @@
+[tasks.install]
+run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
+description = "Install tests dependencies if node_modules is missing"
+
+[tasks.test-camera]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-camera"
+description = "Run camera hardware test"
+
+[tasks.test-led]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-led"
+description = "Run LED hardware test"
+
+[tasks.test-microphone]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-microphone"
+description = "Run microphone hardware test"
+
+[tasks.test-servo]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-servo"
+description = "Run servo hardware test"
+
+[tasks.test-speaker]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-speaker"
+description = "Run speaker hardware test"
+
+[tasks.test-stt]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-stt"
+description = "Run speech-to-text hardware test"
+
+[tasks.test-tts]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-tts"
+description = "Run text-to-speech hardware test"

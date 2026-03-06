@@ -7,7 +7,7 @@
     "url": "https://github.com/ibmtjbot/tjbot/issues"
   },
   "dependencies": {
-    "node-tjbotlib": "latest"
+    "tjbot": "latest"
   },
   "homepage": "https://github.com/ibmtjbot/tjbot#readme",
   "keywords": [
@@ -18,12 +18,5 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ibmtjbot/tjbot.git"
-  },
-  "scripts": {
-    "test-camera": "cd node_modules/node-tjbotlib && npm run test-camera",
-    "test-led": "cd node_modules/node-tjbotlib && npm run test-led",
-    "test-microphone": "cd node_modules/node-tjbotlib && npm run test-microphone",
-    "test-servo": "cd node_modules/node-tjbotlib && npm run test-servo",
-    "test-speaker": "cd node_modules/node-tjbotlib && npm run test-speaker"
   }
 }

@@ -367,11 +367,8 @@ write_mise_toml() {
 
     if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
         cat > "$recipe_dir/mise.toml" << 'EOF'
-[tools]
-node = ">=18"
-
 [tasks.install]
-run = "npm install"
+run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
 description = "Install recipe dependencies"
 
 [tasks.start]
@@ -721,7 +718,7 @@ create_recipe() {
 # Function to run a hardware test
 test_hardware() {
     local hardware="$1"
-    local valid_hardware=("camera" "led" "microphone" "servo" "speaker")
+    local valid_hardware=("camera" "led" "microphone" "servo" "speaker" "stt" "tts")
 
     if [ -z "$hardware" ]; then
         echo -e "${BLUE}Available hardware tests:${NC}"
@@ -755,27 +752,21 @@ test_hardware() {
         return 1
     fi
 
-    # Check if npm is installed
-    if ! command -v npm &> /dev/null; then
-        echo -e "${RED}Error: npm is not installed${NC}"
+    # Check if mise is installed
+    if ! command -v mise &> /dev/null; then
+        echo -e "${RED}Error: mise is not installed${NC}"
         echo ""
-        echo "Install npm with:"
-        echo "  tjbot bootstrap"
+        echo "Install mise with:"
+        echo "  curl https://mise.run | sh"
         return 1
     fi
 
-    # Run the test from tjbot/tests directory
+    # Run the test from tjbot/tests directory via mise tasks
     echo -e "${GREEN}Running hardware test: $hardware${NC}"
     cd "$TJBOT_ROOT/tests" || return 1
 
-    # Install dependencies if not already done
-    if [ ! -d "node_modules" ]; then
-        echo -e "${YELLOW}Installing test dependencies...${NC}"
-        npm install --silent || return 1
-    fi
-
-    # Run the test
-    npm run "test-$hardware"
+    # test-* tasks depend on install in tests/mise.toml
+    mise run "test-$hardware"
 }
 
 # Function to run a recipe
