@@ -7,7 +7,7 @@ This recipe uses speech-to-text to let you control the color of TJBot's LED with
 ## Requirements
 
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
-![LED](https://img.shields.io/badge/Hardware-LED%20(Optional)-orange)
+![LED](https://img.shields.io/badge/Hardware-LED-orange)
 ![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 
