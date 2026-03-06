@@ -23,4 +23,7 @@ const tj = await TJBot.getInstance().initialize({
 });
 
 /* Customization 1: Change the greeting message */
+console.log('===============');
+console.log('  HELLO TJBOT  ');
+console.log('===============');
 await tj.speak('Hello! My name is TJBot and it is very nice to meet you!');

@@ -53,6 +53,9 @@ const tj = await TJBot.getInstance().initialize({
 });
 
 // ready!
+console.log('================');
+console.log('  CHAT WITH TJ  ');
+console.log('================');
 console.log('TJBot is ready for conversation!');
 console.log("Say 'stop' or press ctrl-c to exit this recipe.");
 

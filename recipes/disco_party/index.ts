@@ -54,6 +54,9 @@ const tjColors = tj.shineColors();
 // pick 5 random colors to show as examples
 const randomColors = [...tjColors].sort(() => Math.random() - 0.5).slice(0, 5);
 
+console.log('===============');
+console.log('  DISCO PARTY  ');
+console.log('===============');
 console.log('TJBot is ready to shine!');
 console.log(`I understand lots of colors! Here are a few: ${randomColors.join(', ')}`);
 console.log("You can tell me to shine my light a different color by saying 'turn the light red' or 'change the light to green' or 'turn the light off'.");
