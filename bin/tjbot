@@ -346,16 +346,8 @@ write_recipe_toml() {
     local license="$5"
 
     cat > "$recipe_dir/recipe.toml" << EOF
-[recipe]
-name = "$recipe_name"
-description = "$description"
-version = "1.0.0"
-author = "$author"
-license = "$license"
-
 # Recipe-specific configuration
 # Add any custom configuration options your recipe needs here.
-[config]
 
 EOF
 }
