@@ -1,0 +1,22 @@
+{
+  "name": "peekaboo",
+  "version": "3.0.0",
+  "description": "Play peekaboo with TJBot!",
+  "license": "Apache-2.0",
+  "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "tjbot": "latest"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0"
+  }
+}

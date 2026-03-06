@@ -1,0 +1,8 @@
+[tasks.install]
+run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
+description = "Install recipe dependencies"
+
+[tasks.start]
+depends = ["install"]
+run = "npm start"
+description = "Run recipe"
