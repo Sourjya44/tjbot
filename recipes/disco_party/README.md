@@ -78,7 +78,7 @@ to one of these:
 - `type = 'google-cloud-stt'` for Google's [Speech to Text](https://cloud.google.com/speech-to-text) service
 - `type = 'azure-stt'` for Microsoft's [Speech to Text](https://azure.microsoft.com/en-us/products/cognitive-services/speech-services) service
 
-> 💡 When using a cloud-based STT provider, you will need to create an instance of the STT service and download your authentication credentials. Check out [this guide](https://github.com/tjbot-ce/tjbot/wiki/Configuring-TJBot) for instructions.
+> 💡 When using a cloud-based STT provider, you will need to create an instance of the STT service and download your authentication credentials. Check out [the configuration guide](https://github.com/tjbot-ce/tjbot/wiki/Configuring-TJBot) for instructions.
 
 ## Troubleshoot
 
