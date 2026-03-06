@@ -86,7 +86,8 @@ projectId = <your watsonx.ai projectId>
 serviceUrl = <your watsonx.ai serviceUrl>
 ```
 
-> 🌎 In the United States, the watsonx.ai `serviceUrl` is `https://us-south.ml.cloud.ibm.com`.
+> [!TIP]
+> In the United States, the watsonx.ai `serviceUrl` is `https://us-south.ml.cloud.ibm.com`.
 
 ### (Optional) Shine while speaking
 

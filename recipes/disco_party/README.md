@@ -79,7 +79,8 @@ const discoSpeed = 250; // change colors every 250ms
 
 The `discoDuration` specifies for how many seconds the disco party will last (default: 5 seconds, computed as 5 * 1000ms). The `discoSpeed` specifies for how long TJBot will wait before changing the color of its led (default: 250 milliseconds).
 
-> 🎨 For an added challenge, change the code so that instead of picking colors at random, TJBot cycles through colors in a fixed pallete that you define!
+> [!TIP]
+> For an added challenge, change the code so that instead of picking colors at random, TJBot cycles through colors in a fixed pallete that you define!
 
 ### Customization 2: Use a cloud-based Speech to Text backend
 
@@ -97,7 +98,8 @@ to one of these:
 - `type = 'google-cloud-stt'` for Google's [Speech to Text](https://cloud.google.com/speech-to-text) service
 - `type = 'azure-stt'` for Microsoft's [Speech to Text](https://azure.microsoft.com/en-us/products/cognitive-services/speech-services) service
 
-> 💡 When using a cloud-based STT provider, you will need to create an instance of the STT service and download your authentication credentials. Check out [the configuration guide](https://github.com/tjbot-ce/tjbot/wiki/Configuring-TJBot) for instructions.
+> [!TIP]
+> When using a cloud-based STT provider, you will need to create an instance of the STT service and download your authentication credentials. Check out [the configuration guide](https://github.com/tjbot-ce/tjbot/wiki/Configuring-TJBot) for instructions.
 
 ## Troubleshoot
 
