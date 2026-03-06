@@ -1,6 +1,6 @@
 # Chat with TJ
 
-> :robot: :microphone: Build a talking robot with watsonx.ai!
+> 🤖 🎤 Build a conversational partner with watsonx.ai!
 
 This recipe uses IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) service to turn TJBot into a conversational partner.
 

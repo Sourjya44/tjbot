@@ -1,44 +1,93 @@
-# Speech to Text
-> :speech_balloon: Control TJBot's LED with your voice!
+# Disco Party
 
-This recipe uses the [Speech to Text](https://www.ibm.com/products/speech-to-text) service to let you control the color of TJBot's LED with your voice. For example, if you say "turn the light green," TJBot will change the color of the LED to green.
+> 🪩 Control TJBot's LED with your voice!
 
-## Hardware
-This recipe requires a TJBot with a microphone and an LED.
+This recipe uses speech-to-text to let you control the color of TJBot's LED with your voice. For example, if you say "turn the light green," TJBot will change the color of the LED to green.
 
-> 💡 If you have a Common Anode LED, change `TJBot.Hardware.LED_NEOPIXEL` to `TJBot.Hardware.LED_COMMON_ANODE` in `index.mjs`
+## Requirements
 
-> 📌 By default, TJBot expects Neopixel LEDs to be connected to GPIO PIN 18 and Common Anode LEDs to be connected to GPIO pins 19 (red), 13 (green), and 12 (blue). You may set which pins your LED is connected to by uncommenting the `tjConfig.shine = {...}` code block. See [https://pinout.xyz](https://pinout.xyz) for a complete pin diagram.
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
+![LED](https://img.shields.io/badge/Hardware-LED%20(Optional)-orange)
+![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 
-## Build and Run
-First, make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+> ⚠️ We recommend a Raspberry Pi 4+ for local STT recognition. The recipe will work on other Raspberry Pi hardware using one of the cloud-based STT backends.
 
-Next, go to the `recipes/speech_to_text` folder and install the dependencies.
+## How It Works
 
-    $ cd tjbot/recipes/speech_to_text
-    $ npm install
+This recipe demonstrates TJBot's capabilities to recognize speech by having it listen to your voice through the microphone. You can configure your TJBot to use one of the following speech-to-text backends:
 
-Create an instance of the [Speech to Text](https://www.ibm.com/products/speech-to-text) service and download the authentication credentials file. Ensure this file is named `ibm-credentials.env` and place it in the `tjbot/recipes/speech_to_text` folder.
+- [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) is a lightweight on-device speech recognition engine that requires no internet connection or cloud API keys.
+- [IBM Watson Speech to Text](https://www.ibm.com/products/speech-to-text) is a cloud-based speech-to-text service offered by IBM.
+- [Google Cloud Speech-To-Text](https://cloud.google.com/speech-to-text) is a cloud-based text-to-speech service offered by Google.
+- [Microsoft Azure Speech](https://azure.microsoft.com/en-us/products/cognitive-services/speech-services) is a cloud-based speech-to-text service offered by Microsoft.
 
-Run!
+## Configure
 
-    $ sudo npm start
+> 🔧 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
-> Note the `sudo` command. Root user access is required to run TJBot recipes.
+## Run
 
-Now, speak into TJBot's microphone to change the color of the LED. Say "turn the light blue" to change the light to blue or "turn the light purple" to change it to purle. You can try other colors as well, such as yellow, green, orange, purple, magenta, red, blue, aqua, and white. You can also say "turn the light on" or "turn the light off".
+Open a Terminal and run the following command from anywhere on your system:
+
+```sh
+tjbot run disco_party
+```
+
+You should see the following output:
+
+```sh
+$ tjbot run disco_party
+
+> disco_party@3.0.0 start
+> node index.js
+
+TBD
+```
+
+> ⚠️ The first time you run this script, your TJBot will download a Text to Speech model. This download may take a little time, please be patient!
 
 ## Customize
-We have hidden a disco party for you. Find the code for disco party in `index.mjs` and uncomment the code (hint: there are two places that need to be uncommented). Now you can ask TJ to show you the disco lights by saying "Let's have a disco party"!
+
+### Customization 1: Change the duration and speed of the disco party
+
+Try changing the duration and speed of the disco party. The `discoDuration` and `discoSpeed` variables are defined in the `discoParty` method:
+
+```typescript
+const discoDuration = 5 * 1000; // 5 seconds
+const discoSpeed = 250; // change colors every 250ms
+```
+
+The `discoDuration` specifies for how many seconds the disco party will last (default: 5 seconds, computed as 5 * 1000ms). The `discoSpeed` specifies for how long TJBot will wait before changing the color of its led (default: 250 milliseconds).
+
+> 🎨 For an added challenge, change the code so that instead of picking colors at random, TJBot cycles through colors in a fixed pallete that you define!
+
+### Customization 2: Use a cloud-based Speech to Text backend
+
+Try out one of the cloud-based STT backends. You can do this using the `tjbot config` configuration wizard.
+
+You can also edit the `~/.tjbot/tjbot.toml` configuration file directly. Search for the `[listen.backend]` section and change this line:
+
+```toml
+type = 'local'
+```
+
+to one of these:
+
+- `type = 'ibm-watson-stt'` for IBM's [Speech to Text](https://www.ibm.com/products/speech-to-text) service
+- `type = 'google-cloud-stt'` for Google's [Speech to Text](https://cloud.google.com/speech-to-text) service
+- `type = 'azure-stt'` for Microsoft's [Speech to Text](https://azure.microsoft.com/en-us/products/cognitive-services/speech-services) service
+
+> 💡 When using a cloud-based STT provider, you will need to create an instance of the STT service and download your authentication credentials. Check out [this guide](https://github.com/tjbot-ce/tjbot/wiki/Configuring-TJBot) for instructions.
 
 ## Troubleshoot
-If you are having difficulties in making this recipe work, please see the [troubleshooting guide](../../TROUBLESHOOTING.md).
 
-# Watson Services
-- [Speech to Text](https://www.ibm.com/products/speech-to-text)
+If you are having difficulties in making this recipe work, please see the [troubleshooting guide](https://github.com/tjbot-ce/tjbot/wiki/Troubleshooting-TJBot).
 
-# License
+## Contribute
+
+If you would like to contribute to TJBot, please see the [contributor's guide](https://github.com/tjbot-ce/tjbot/wiki/Contributing-to-TJBot).
+
+## License
+
 This project is licensed under Apache 2.0. Full license text is available in [LICENSE](../../LICENSE).
-
-# Contributing
-See [CONTRIBUTING.md](../../CONTRIBUTING.md).

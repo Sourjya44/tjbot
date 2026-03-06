@@ -19,12 +19,16 @@ import TJBot from 'tjbot';
 
 // let's have a disco party!
 function discoParty(tj: TJBot, colors: string[]) {
-    for (let i = 0; i < 30; i += 1) {
+    // Customization 1: Change the duration and speed of the disco party
+    const discoDuration = 5 * 1000; // 5 seconds
+    const discoSpeed = 250; // change colors every 250ms
+
+    for (let i = 0; i < discoDuration / discoSpeed; i += 1) {
         setTimeout(() => {
             const randIdx = Math.floor(Math.random() * colors.length);
             const randColor = colors[randIdx];
             tj.shine(randColor);
-        }, i * 250);
+        }, i * discoSpeed);
     }
 }
 
@@ -46,7 +50,6 @@ const tj = await TJBot.getInstance().initialize({
 
 // full list of colors that TJ recognizes, e.g. ['red', 'green', 'blue']
 const tjColors = tj.shineColors();
-console.log(`TJBot recognizes ${tjColors.length} colors!`);
 
 // pick 5 random colors to show as examples
 const randomColors = [...tjColors].sort(() => Math.random() - 0.5).slice(0, 5);

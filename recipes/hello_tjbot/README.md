@@ -25,15 +25,6 @@ This recipe demonstrates TJBot's speech capabilities by having it say hello usin
 
 > 🔧 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
-### Install dependencies
-
-Open a Terminal, navigate to the `tjbot/recipes/hello_tjbot` directory, and install the dependencies.
-
-```sh
-cd tjbot/recipes/hello_tjbot
-npm install
-```
-
 ## Run
 
 Open a Terminal and run the following command from anywhere on your system:
@@ -81,7 +72,7 @@ await tj.speak('Hello! My name is TJBot and it is very nice to meet you!');
 
 Have TJBot speak in a different voice by editing your TJBot configuration. You can do this using the `tjbot config` configuration wizard.
 
-You can also edit the `~/.tjbot/tjbot.toml` configuration file directly. To do this, search for the `[speak.backend.local]` section and change this line:
+You can also edit the `~/.tjbot/tjbot.toml` configuration file directly. Search for the `[speak.backend.local]` section and change this line:
 
 ```toml
 model = 'vits-piper-en_US-ryan-medium'
