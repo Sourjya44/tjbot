@@ -27,11 +27,18 @@ This recipe demonstrates TJBot's speech capabilities by having it say hello usin
 
 ## Run
 
+You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
+
+### Run using `tjbot run`
+
 Open a Terminal and run the following command from anywhere on your system:
 
 ```sh
 tjbot run hello_tjbot
 ```
+
+> [!NOTE]
+> `tjbot` invokes `mise` under the hood, which will automatically install any required software dependencies before running the recipe.
 
 You should see the following output:
 
@@ -39,23 +46,22 @@ You should see the following output:
 $ tjbot run hello_tjbot
 
 > hello_tjbot@3.0.0 start
-> node index.js
+> tsx index.ts
 
-info: 👋 Hello from TJBot! Running on Raspberry Pi 5 Model B Rev 1.0
-info: 🤖 Initializing TJBot with speaker
-info: 💬 TJBot speaking: "Hello! My name is TJBot and it is very nice to meet you!"
-info: 📦 Downloading sherpa-onnx model: Ryan (US male, medium quality, ~50MB)
-info: Downloading from https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-ryan-medium.tar.bz2
-Downloading [████████████████████████████████████████] 100% | 64/64 MB
-info: Download complete
-info: 📦 Extracting model...
-info: 📦 Successfully downloaded sherpa-onnx model: Ryan (US male, medium quality, ~50MB) (en_US-ryan-medium.onnx)
-info: 🗣️ Sherpa-ONNX TTS engine initialized
-info: 💬 Loading TTS model: vits-piper-en_US-ryan-medium
-info: 💬 TTS model loaded successfully
+TODO: ADD SAMPLE CONSOLE OUTPUT HERE
 ```
 
-> ⚠️ The first time you run this script, your TJBot will download a Speech to Text model. This download may take a little time, please be patient!
+> [!IMPORTANT]
+> The first time you run this script, your TJBot may download a Speech to Text model. This download may take a little time, please be patient!
+
+### Run manually using `mise`
+
+Open a Terminal, navigate to this recipe's directory, and run using `mise`.
+
+```sh
+cd ~/.tjbot/recipes/hello_tjbot
+mise run start
+```
 
 ## Customize
 

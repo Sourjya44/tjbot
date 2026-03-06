@@ -109,25 +109,26 @@ Open a Terminal and run the following command from anywhere on your system:
 tjbot run chat_with_tj
 ```
 
-> 💡 `tjbot` invokes `mise` under the hood, which will automatically install any required software dependencies before running the recipe.
+> [!NOTE]
+> `tjbot` invokes `mise` under the hood, which will automatically install any required software dependencies before running the recipe.
+
+You should see the following output:
+
+```sh
+$ tjbot run chat_with_tj
+
+> chat_with_tj@3.0.0 start
+> tsx index.ts
+
+TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+```
 
 ### Run manually using `mise`
 
-Open a Terminal and navigate to this recipe's directory. For example, if this recipe is located in `~/.tjbot/recipes/chat_with_tj`, then:
+Open a Terminal, navigate to this recipe's directory, and run using `mise`.
 
 ```sh
 cd ~/.tjbot/recipes/chat_with_tj
-```
-
-Install the recipe's dependencies:
-
-```sh
-mise install
-```
-
-Then, run the recipe:
-
-```sh
 mise run start
 ```
 

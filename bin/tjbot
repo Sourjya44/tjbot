@@ -451,25 +451,26 @@ Open a Terminal and run the following command from anywhere on your system:
 tjbot run $recipe_slug
 \`\`\`
 
-> 💡 \`tjbot\` invokes \`mise\` under the hood, which will automatically install any required software dependencies before running the recipe.
+> [!NOTE]
+> \`tjbot\` invokes \`mise\` under the hood, which will automatically install any required software dependencies before running the recipe.
+
+You should see the following output:
+
+\`\`\`sh
+$ tjbot run $recipe_slug
+
+> $recipe_slug@3.0.0 start
+> tsx index.ts
+
+TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+\`\`\`
 
 ### Run manually using \`mise\`
 
-Open a Terminal and navigate to this recipe's directory. For example, if this recipe is located in \`~/Desktop/$recipe_slug\`, then:
+Open a Terminal, navigate to this recipe's directory, and run using \`mise\`.
 
 \`\`\`sh
-cd ~/Desktop/$recipe_slug
-\`\`\`
-
-Install the recipe's dependencies:
-
-\`\`\`sh
-mise install
-\`\`\`
-
-Then, run the recipe:
-
-\`\`\`sh
+cd ~/.tjbot/recipes/$recipe_slug
 mise run start
 \`\`\`
 

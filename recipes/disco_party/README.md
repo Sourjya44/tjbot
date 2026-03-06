@@ -28,11 +28,18 @@ This recipe demonstrates TJBot's capabilities to recognize speech by having it l
 
 ## Run
 
+You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
+
+### Run using `tjbot run`
+
 Open a Terminal and run the following command from anywhere on your system:
 
 ```sh
 tjbot run disco_party
 ```
+
+> [!NOTE]
+> `tjbot` invokes `mise` under the hood, which will automatically install any required software dependencies before running the recipe.
 
 You should see the following output:
 
@@ -40,12 +47,22 @@ You should see the following output:
 $ tjbot run disco_party
 
 > disco_party@3.0.0 start
-> node index.js
+> tsx index.ts
 
-TBD
+TODO: ADD SAMPLE CONSOLE OUTPUT HERE
 ```
 
-> ⚠️ The first time you run this script, your TJBot will download a Text to Speech model. This download may take a little time, please be patient!
+> [!IMPORTANT]
+> The first time you run this script, your TJBot may download a Text to Speech model. This download may take a little time, please be patient!
+
+### Run manually using `mise`
+
+Open a Terminal, navigate to this recipe's directory, and run using `mise`.
+
+```sh
+cd ~/.tjbot/recipes/disco_party
+mise run start
+```
 
 ## Customize
 
