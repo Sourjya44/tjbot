@@ -31,34 +31,25 @@ If you don't know the answer to a question, you respond truthfully that you do n
 // read recipe-specific config
 const config = TJBot.getRecipeConfig();
 
-// these are the hardware capabilities that TJ needs for this recipe
-const hardware = [
-    TJBot.Hardware.MICROPHONE,
-    TJBot.Hardware.SPEAKER,
-];
-
-let hasLED = false;
-if (config.useNeoPixelLED) {
-    hardware.push(TJBot.Hardware.LED_NEOPIXEL);
-    hasLED = true;
-}
-if (config.useCommonAnodeLED) {
-    hardware.push(TJBot.Hardware.LED_COMMON_ANODE);
-    hasLED = true;
-}
-
 // create an instance of the watsonx.ai service
 const wxai = WatsonXAI.newInstance({
-    serviceUrl: config.serviceUrl,
-    version: config.serviceVersion,
+    serviceUrl: config.serviceUrl as string | undefined,
+    version: config.serviceVersion as string | undefined,
 });
+
+// check if the user has configured an LED
+const hasLED = config.useNeoPixelLED || config.useCommonAnodeLED;
 
 // keep track of the conversational history
 let conversationHistory = '';
 
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
-    hardware: hardware
+    hardware: {
+        microphone: true,
+        speaker: true,
+        led: hasLED
+    }
 });
 
 // ready!
@@ -104,16 +95,16 @@ AI: `;
 
     const params = {
         input: prompt,
-        modelId: config.modelId,
-        projectId: config.projectId,
+        modelId: config.modelId as string,
+        projectId: config.projectId as string,
         parameters: {
-            decoding_method: config.modelDecodingMethod || 'greedy',
-            temperature: config.modelTemperature || 0.7,
-            random_seed: config.modelRandomSeed || 42,
-            min_new_tokens: config.modelMinNewTokens || 0,
-            max_new_tokens: config.modelMaxNewTokens || 200,
+            decoding_method: (config.modelDecodingMethod as string) || 'greedy',
+            temperature: (config.modelTemperature as number) || 0.7,
+            random_seed: (config.modelRandomSeed as number) || 42,
+            min_new_tokens: (config.modelMinNewTokens as number) || 0,
+            max_new_tokens: (config.modelMaxNewTokens as number) || 200,
             stop_sequences: ['.'],
-            repetition_penalty: config.modelRepetitionPenalty || 1.0,
+            repetition_penalty: (config.modelRepetitionPenalty as number) || 1.0,
         },
     };
 

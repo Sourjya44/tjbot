@@ -586,10 +586,10 @@ EOF
             cat > "$recipe_dir/tsconfig.json" << 'EOF'
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2020"],
+    "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
