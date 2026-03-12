@@ -1,113 +1,155 @@
 # TJ the Translator
-> 💬: 🗺️: Use TJBot to translate languages!
 
-This recipe uses IBM [watsonx.ai](https://www.ibm.com/products/watsonx-ai), [Speech to Text](https://www.ibm.com/products/speech-to-text) and [Text to Speech](https://www.ibm.com/products/text-to-speech) services to turn TJBot into a language translator.
+> 💬 🌎 Speak another language with TJBot!
 
-## Hardware
-This recipe requires a TJBot with a microphone, a speaker, and (optionally) an LED.
+This recipe uses Google Cloud Translation together with TJBot's speech input and speech output to turn TJBot into a language translator.
+
+## Requirements
+
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
+![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)
+
+> [!CAUTION]
+> We recommend a Raspberry Pi 4+ for local STT recognition. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
+
+## How It Works
+
+This recipe demonstrates TJBot's speech-to-text capabilities by having it listen to your speech and then translate it to another language using [Google Cloud Translate](https://cloud.google.com/translate).
 
 ## Configure
-> 🤖 Prerequisite: Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
 
-### Install dependencies
-Open a Terminal, navigate to the `tjbot/recipes/tj_the_translator` directory, and install the dependencies.
+> [!CAUTION]
+> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
-```sh
-$ cd tjbot/recipes/tj_the_translator
-$ npm install
-```
+To use this recipe, you need to create a free Google Cloud project. You will turn on the Cloud Translation API for that project, then download a special credentials file that lets TJBot use it.
 
-### Create instances of IBM Cloud AI services
-Create instances of the [Speech to Text](https://cloud.ibm.com/catalog/services/speech-to-text), and [Text to Speech](https://cloud.ibm.com/catalog/services/text-to-speech) services. Download the authentication credentials file for each service and combine them into a single file named `ibm-credentials.env`. Place this file in the `tjbot/recipes/tj_the_translator` folder. See `ibm-credentials.sample.env` for an example.
+> [!NOTE]
+> Making a Google Cloud project is free. Google may ask you to add a payment method before you can turn on the API, but many small projects stay within the free trial or free usage limits.
 
-### Create an IBM Cloud API Key
-Create an API key to connect to watsonx.ai in the IBM Cloud.
+### 1. Create a Google Cloud project
 
-1. Visit the [IBM Cloud IAM API Keys](https://cloud.ibm.com/iam/apikeys) page.
-2. Click the blue "Create" button.
-3. Type in a name for your API key and click "Create" (we recommend "TJBot"!)
-4. Copy the API key. **Important**: Once you close the dialog, you will not be able to retrieve this API key in the future; instead, you will need to revoke the key and generate a new one.
-5. Open the `ibm-credentials.env` file and paste the API key next to `WATSONX_AI_APIKEY=`.
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Sign in with your Google account.
+3. At the top of the page, click the project name box.
+4. Click **New Project**.
+5. Type a name like **tjbot-translator**.
+6. Click **Create**.
+7. Wait a moment, then make sure your new project is selected.
 
-### Create a watsonx.ai Project
-Create a watsonx.ai project.
+### 2. Turn on Cloud Translation for your project
 
-1. Launch [watsonx.ai](https://dataplatform.cloud.ibm.com/wx/home?context=wx)
-2. Sign up or login.
-3. Click the "+" sign in the "Projects" section. Follow the steps to create a new project.
-4. Open the project and click the "Manage" tab.
-5. From the "General" section copy your `projectId`. Save this for later.
-6. Next click "Services & integrations".
-7. Click "Associate service" and select the "Watson Machine Learning" service.
-8. Click "Associate" at the bottom right.
-9. Find your `serviceUrl` by visiting the [API documentation](https://cloud.ibm.com/apidocs/machine-learning) and locating the section titled "Endpoint URLs." Copy the URL that corresponds to the region in which you created your Watson Machine Learning service, you will need it in the next step.
+1. Open the [Cloud Translation API page](https://console.cloud.google.com/apis/library/translate.googleapis.com).
+2. Check that your new project is selected at the top of the page.
+3. Click **Enable**.
 
-### Update TJBot's Configuration
-Make a copy of TJBot's sample configuration file.
+### 3. Make a robot account for TJBot
 
-```sh
-$ cp tjbot.sample.toml tjbot.toml
-```
+1. Open the [Service Accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts).
+2. Make sure your TJBot project is still selected.
+3. Click **Create Service Account**.
+4. In the name box, type **tjbot-translator**.
+5. Click **Create and Continue**.
+6. If Google shows extra permission steps, keep clicking **Continue** or **Done** unless it clearly says something is required.
+7. When you are finished, you should see your new service account in the list.
 
-Open `tjbot.toml` in a text editor. In the `[Recipe]` section, fill in the `projectId` and `serviceUrl` configuration parameters from watsonx.ai.
+### 4. Download the credentials file
 
-```toml
-projectId = '' # FILL IN WITH YOUR WATSONX.AI PROJECT ID
-serviceUrl = 'https://us-south.ml.cloud.ibm.com' # CHANGE THIS IF YOUR SERVICEURL IS IN A DIFFERENT REGION
-```
+1. Click the new service account you just made.
+2. Click the **Keys** tab.
+3. Click **Add Key**.
+4. Click **Create new key**.
+5. Choose **JSON**.
+6. Click **Create**.
+7. A JSON file will download to your computer. This is your credentials file.
 
-### (Optional) Configure your LED
-If you are using an LED, edit the `tjbot.toml` file to indicate which kind of LED you are using by specifying it in the `[Recipe]` section. This example shows the configuration for a NeoPixel LED.
+### 5. Put the file where TJBot can find it
 
-```toml
-useNeoPixelLED = true     # set to true if using a NeoPixel LED
-useCommonAnodeLED = false # set to true if using a Common Anode LED
-```
+Save the downloaded file to your TJBot, ensure it is named `google-credentials.json`, and put it in one of these places:
+
+1. In the **recipes/tj_the_translator** folder. In this location, only the `tj_the_translator` recipe will have access to these credentials.
+2. In **~/.tjbot**. In this location, any tjbot recipes will be able to use these credentials.
+
+> [!WARNING]
+> The credentials file is private. Do not share it with other people or post it online.
 
 ## Run
-Run the recipe using `npm`:
+
+You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
+
+### Run using `tjbot run`
+
+Open a Terminal and run the following command from anywhere on your system:
 
 ```sh
-$ sudo npm start
+tjbot run hello_tjbot
 ```
 
-Now you can chat with TJBot!
+> [!NOTE]
+> `tjbot` invokes `mise` under the hood, which will automatically install any required software dependencies before running the recipe.
+
+You should see the following output:
+
+```sh
+$ tjbot run tj_the_translator
+
+> tj_the_translator@3.0.0 start
+> tsx index.ts
+
+TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+```
+
+> [!IMPORTANT]
+> The first time you run this script, your TJBot may download a Speech to Text model. This download may take a little time, please be patient!
+
+### Run manually using `mise`
+
+Open a Terminal, navigate to this recipe's directory, and run using `mise`.
+
+```sh
+cd ~/.tjbot/recipes/tj_the_translator
+mise run start
+```
 
 ## Customize
 
-### Shine while speaking
-Have an LED hooked up to your TJBot? Update your `tjbot.toml` file to indicate which kind of LED you have by setting one (or both) of these values to `true`:
+### Customization 1: Translate to a different language
+
+Change the language TJBot translates into by editing `recipe.toml`:
 
 ```toml
-useNeoPixelLED = false     # set to true if using a NeoPixel LED
-useCommonAnodeLED = false  # set to true if using a Common Anode LED
+language = 'french' # 🇫🇷
 ```
 
-Then, TJBot will shine green when listening, orange when processing your speech, and yellow when speaking!
-
-### Try a different LLM
-Want to try a different large language model? Check out the [full list of large language models](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-api-model-ids.html?context=wx&audience=wdp) supported by watsonx.ai. and then change the `modelId` parameter in your `tjbot.toml` file.
+You may also specify a language code for languages that need a specific locale:
 
 ```toml
-modelId = 'meta-llama/llama-3-70b-instruct'
+language = 'pt-BR' # 🇧🇷
 ```
 
-You can also try changing different [model parameters](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-parameters.html?context=wx&audience=wdp), such as the `modelDecodingMethod` and the `modelTemperature` to change how TJBot responds to you.
+> [!TIP]
+> Check out `index.ts` for a full list of supported languages. Look for the line that defines `LANGUAGE_NAME_TO_CODE`.
 
-### Change TJBot's voice
-Find a new voice for TJBot! Check out the [list of Speech to Text voices](https://cloud.ibm.com/docs/text-to-speech?topic=text-to-speech-voices) and updatte the `voice` parameter in your `tjbot.toml` file. Try different voices such as Lisa (`en-US_LisaV3Voice`), Kate (`en-GB_KateV3Voice`), or Emma (`en-US_EmmaExpressive`)!
+### Customization 2: Translate from a language other than English
+
+You can make TJBot translate from a language other than English by changing the language code on this line:
+
+```ts
+const sourceLanguageCode = 'en';
+```
+
+> [!WARNING]
+The local speech-to-text model only supports spoken English. If you would like TJBot to be able to listen to you speak in another language, you will also need to use one of the cloud-based STT backends. For this recipe, we recommend using Google Speech to Text and configuring it with a model that understands the language you wish to speak.
 
 ## Troubleshoot
-If you are having difficulties in making this recipe work, please see the [troubleshooting guide](../../TROUBLESHOOTING.md).
 
-# IBM Cloud Services
-- [watsonx.ai](https://www.ibm.com/products/watsonx-ai)
-- [Text to Speech](https://www.ibm.com/products/text-to-speech)
-- [Speech to Text](https://www.ibm.com/products/speech-to-text)
+If you are having difficulties in making this recipe work, please see the [troubleshooting guide](https://github.com/tjbot-ce/tjbot/wiki/Troubleshooting-TJBot).
 
-# Contribute
-See [CONTRIBUTING.md](../../CONTRIBUTING.md).
+## Contribute
 
-# License
+If you would like to contribute to TJBot, please see the [contributor's guide](https://github.com/tjbot-ce/tjbot/wiki/Contributing-to-TJBot).
+
+## License
+
 This project is licensed under Apache 2.0. Full license text is available in [LICENSE](../../LICENSE).
-
