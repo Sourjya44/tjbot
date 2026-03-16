@@ -1,0 +1,13 @@
+# Customization 1: Add a new action
+actions = [
+    "touch your toes",
+    "jump up and down",
+    "put your hands on your head",
+    "touch your nose",
+    "touch your ears",
+    "touch your elbow",
+    "touch your knees",
+    "stand on one leg",
+]
+
+tjDidntSayLikelihood = 0.33

@@ -1,7 +1,7 @@
 {
-  "name": "simon_says",
+  "name": "tj_says",
   "version": "3.0.0",
-  "description": "TJBot plays Simon Says, powered by IBM watsonx Assistant",
+  "description": "Play a game of TJ Says!",
   "license": "Apache-2.0",
   "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "type": "module",
@@ -13,8 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "ibm-watson": "^12.2.0",
-    "tjbot": "^3.0.0"
+    "tjbot": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
