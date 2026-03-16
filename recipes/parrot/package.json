@@ -1,7 +1,7 @@
 {
-  "name": "hello_tjbot",
+  "name": "parrot",
   "version": "3.0.0",
-  "description": "Hello world, TJBot style.",
+  "description": "TJBot pretends it's a parrot!",
   "license": "Apache-2.0",
   "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "type": "module",
@@ -13,7 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "tjbot": "^3.0.0"
+    "tjbot": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

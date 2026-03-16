@@ -14,7 +14,7 @@ This recipe uses IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) ser
 [![watsonx.ai](https://img.shields.io/badge/IBM-watsonx.ai-0F62FE?logo=ibm&logoColor=white)](https://www.ibm.com/products/watsonx-ai)
 
 > [!CAUTION]
-> We recommend a Raspberry Pi 4+ for local TTS synthesis. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
+> We recommend a Raspberry Pi 4+ for local Text-to-Speech (TTS) synthesis. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
 
 ## How it Works
 

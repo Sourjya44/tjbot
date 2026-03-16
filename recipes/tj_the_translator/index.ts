@@ -121,6 +121,9 @@ async function translateText(text: string): Promise<string> {
 
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
+    log: {
+        level: 'verbose',
+    },
     hardware: {
         microphone: true,
         speaker: true,
@@ -148,6 +151,7 @@ while (true) {
     let msg = await tj.listen();
 
     if (msg === undefined || msg === '') {
+        console.log('No speech detected, trying again...');
         continue;
     }
 

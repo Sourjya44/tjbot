@@ -13,7 +13,7 @@ This recipe uses Google Cloud Translation together with TJBot's speech input and
 [![Google Cloud Translate](https://img.shields.io/badge/Google%20Cloud-Translate-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/translate)
 
 > [!CAUTION]
-> We recommend a Raspberry Pi 4+ for local STT recognition. The recipe will work on other Raspberry Pi hardware using one of the cloud-based TTS backends.
+> We recommend a Raspberry Pi 4+ for local Speech-to-Text (STT) recognition and Text-to-Speech (TTS) synthesis. The recipe will work on other Raspberry Pi hardware using cloud-based STT & TTS backends.
 
 ## How It Works
 

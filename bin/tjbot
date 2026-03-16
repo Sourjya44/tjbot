@@ -554,24 +554,39 @@ EOF
 
         cat > "$recipe_dir/package.json" << EOF
 {
-  "name": "$recipe_name",
-  "version": "1.0.0",
-  "description": "$description",
-  "license": "$license",
-  "author": "$author",
-  "type": "module",
-  "main": "index.$file_ext",
-  "scripts": {
-    "start": "$start_script",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "dependencies": {
-    "tjbot": "latest"
-  }$(if [ "$language" = "typescript" ]; then echo ",
-  \"devDependencies\": {
-    \"typescript\": \"^5.6.0\",
-    \"tsx\": \"^4.19.0\"
-  }"; fi)
+    "name": "$recipe_name",
+    "version": "1.0.0",
+    "description": "$description",
+    "license": "$license",
+    "author": "$author",
+    "type": "module",
+    "main": "index.$file_ext",
+    "scripts": {
+        "start": "tsx index.ts",
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "tjbot": "latest"
+    }
+EOF
+
+        if [ "$language" = "typescript" ]; then
+            cat >> "$recipe_dir/package.json" << EOF
+,
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.0.2",
+        "globals": "^17.4.0",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.56.1"
+    }
+EOF
+        fi
+
+        cat >> "$recipe_dir/package.json" << EOF
 }
 EOF
 

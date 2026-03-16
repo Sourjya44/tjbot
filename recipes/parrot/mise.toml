@@ -1,8 +1,5 @@
-[tools]
-node = ">=18"
-
 [tasks.install]
-run = "npm install"
+run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
 description = "Install recipe dependencies"
 
 [tasks.start]
