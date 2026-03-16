@@ -126,7 +126,7 @@ $ tjbot run chat_with_tj
 > chat_with_tj@3.0.0 start
 > tsx index.ts
 
-TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+...
 ```
 
 ### Run manually using `mise`

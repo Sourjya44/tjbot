@@ -100,7 +100,7 @@ $ tjbot run tj_the_translator
 > tj_the_translator@3.0.0 start
 > tsx index.ts
 
-TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+...
 ```
 
 > [!IMPORTANT]

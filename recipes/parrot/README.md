@@ -52,7 +52,7 @@ $ tjbot run parrot
 > parrot@3.0.0 start
 > tsx index.ts
 
-TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+...
 ```
 
 > [!IMPORTANT]

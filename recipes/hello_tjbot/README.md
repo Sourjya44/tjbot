@@ -51,7 +51,7 @@ $ tjbot run hello_tjbot
 > hello_tjbot@3.0.0 start
 > tsx index.ts
 
-TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+...
 ```
 
 > [!IMPORTANT]
