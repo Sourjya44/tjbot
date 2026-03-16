@@ -32,19 +32,12 @@ function discoParty(tj: TJBot, colors: string[]) {
     }
 }
 
-// read recipe-specific config
-const config = TJBot.getRecipeConfig();
-
-if (!config.useNeoPixelLED && !config.useCommonAnodeLED) {
-    throw new Error('This recipe requires an LED. Please edit recipe.toml to specify which type of LED your TJBot uses.');
-}
-
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
     hardware: {
+        led: true,
         microphone: true,
         speaker: true,
-        led: config.useNeoPixelLED || config.useCommonAnodeLED
     }
 });
 

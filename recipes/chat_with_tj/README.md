@@ -7,6 +7,7 @@ This recipe uses IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) ser
 ## Requirements
 
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
+![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)
 ![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)
 ![LED](https://img.shields.io/badge/Hardware-LED%20(Optional)-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)

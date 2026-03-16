@@ -7,6 +7,8 @@ This recipe uses Google Cloud Translation together with TJBot's speech input and
 ## Requirements
 
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
+![LED](https://img.shields.io/badge/Hardware-LED-orange)
+![Microphone](https://img.shields.io/badge/Hardware-Speaker-orange)
 ![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)

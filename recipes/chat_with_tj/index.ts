@@ -43,9 +43,9 @@ let conversationHistory = '';
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
     hardware: {
+        led: config.hasLED,
         microphone: true,
-        speaker: true,
-        led: config.hasLED
+        speaker: true
     }
 });
 
@@ -55,7 +55,7 @@ console.log('  CHAT WITH TJ  ');
 console.log('================');
 
 console.log('TJBot is ready for conversation!');
-console.log("Say 'stop' or press ctrl-c to exit this recipe.");
+console.log("Say 'stop' or press Ctrl-C to exit this recipe.");
 
 // gracefully handle Ctrl-C
 process.on('SIGINT', () => {

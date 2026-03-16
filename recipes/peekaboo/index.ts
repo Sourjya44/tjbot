@@ -210,7 +210,8 @@ const runPeekaboo = async (): Promise<void> => {
 console.log('============');
 console.log('  PEEKABOO  ');
 console.log('============');
-console.log('TJBot is ready to play peekaboo!');
+
+console.log("Let's play Peekaboo!");
 console.log("Press Ctrl-C to exit this recipe.");
 
 try {

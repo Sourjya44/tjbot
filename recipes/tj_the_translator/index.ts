@@ -125,9 +125,9 @@ const tj = await TJBot.getInstance().initialize({
         level: 'verbose',
     },
     hardware: {
+        led: true,
         microphone: true,
         speaker: true,
-        led: true,
     }
 });
 
@@ -135,14 +135,18 @@ const tj = await TJBot.getInstance().initialize({
 console.log("=====================");
 console.log("  TJ THE TRANSLATOR  ");
 console.log("=====================");
+
 console.log('TJBot is ready for translation!');
 console.log("Say 'stop' or press Ctrl-C to exit this recipe.");
-await tj.speak(`Hello! I'm T J Bot and I will be your language translator. Please say something in English and I will translate it to ${targetLanguageLabel}!`);
 
 process.on('SIGINT', () => {
     console.log('\nGoodbye!');
     process.exit(0);
 });
+
+const instructions = `Hello! I'm T J Bot and I will be your language translator.
+Please say something in English and I will translate it to ${targetLanguageLabel}!`;
+await tj.speak(instructions);
 
 while (true) {
     console.log('👂 Listening...');
