@@ -58,18 +58,25 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
-const instructions = `
-Let's play TJ Says! It's just like Simon Says! I will call out an action and you have to do it.
-But pay close attention. If I don't say 'TJ Says' first, then don't do what I say!
-Ready? Let's begin!
-`
+const instructions = [
+    "Let's play T J Says!",
+    "It's just like Simon Says.",
+    "I will call out an action and you have to do it.",
+    "But pay close attention.",
+    "If I don't say 'T J Says' first, then don't do what I say!",
+    "Are you ready?",
+    "Let's play!"
+];
 
 // speak the instructions
-await tj.speak(instructions);
+for (const instruction of instructions) {
+    await tj.speak(instruction);
+    await tj.sleep(0.3);
+}
 
 // now play the game :)
-var lastActionIdx = -1;
-var turnCounter = 0;
+let lastActionIdx = -1;
+let turnCounter = 0;
 while (true) {
     tj.shine('green');
 
@@ -83,7 +90,7 @@ while (true) {
     const action = actions[randIdx];
 
     // should we say "TJ Says"? only do this after the 3rd turn to give players a chance to warm up
-    var sayTJ;
+    let sayTJ;
     if (turnCounter < 3) {
         sayTJ = true;
     } else {
@@ -97,15 +104,17 @@ while (true) {
 
     // wait a bit...
     await tj.pulse('orange');
-    await tj.pulse('orange');
-    await tj.pulse('orange');
 
     if (!sayTJ) {
         await tj.lowerArm();
-        await tj.speak(`Did you ${action}? TJBot didn't say!`);
+        await tj.speak(`Did you ${action}?`);
+        await tj.speak("T J didn't say!")
         await tj.raiseArm();
         await tj.sleep(1);
         await tj.speak("Let's play again!");
+        turnCounter = 0; // reset the turn counter
+    } else {
+        await tj.sleep(1); // give the player a moment to do the action
     }
 
     // increment the turn counter
