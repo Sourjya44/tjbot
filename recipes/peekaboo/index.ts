@@ -49,33 +49,9 @@ const SEARCHING_REMINDERS = [
 
 let running = true;
 
-const sleep = async (ms: number): Promise<void> => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-};
-
 const randomItem = (values: string[]): string => {
     const index = Math.floor(Math.random() * values.length);
     return values[index] ?? values[0];
-};
-
-const safeSpeak = async (message: string): Promise<void> => {
-    try {
-        console.log(`TJBot: ${message}`);
-        await tj.speak(message);
-    } catch (error) {
-        console.error('Failed to speak:', error);
-    }
-};
-
-const detectFace = async (): Promise<boolean> => {
-    try {
-        const imagePath = await tj.look();
-        const result = await tj.detectFaces(imagePath);
-        return result.isFaceDetected;
-    } catch (error) {
-        console.error('Face detection failed:', error);
-        return false;
-    }
 };
 
 type WaitForFaceOptions = {
@@ -90,57 +66,40 @@ const waitForFacePresence = async (
 ): Promise<void> => {
     let nextPulseAt = Date.now();
     let nextReminderAt = Date.now() + (options.reminderIntervalMs ?? SEARCH_REMINDER_INTERVAL_MS);
-    let pulseInFlight = false;
-    let reminderInFlight = false;
 
     while (running) {
         const now = Date.now();
 
-        if (options.pulseColor && !pulseInFlight && now >= nextPulseAt) {
-            pulseInFlight = true;
+        if (options.pulseColor && now >= nextPulseAt) {
             nextPulseAt = now + LED_PULSE_INTERVAL_MS;
-
-            void tj.pulse(options.pulseColor)
-                .catch((error) => {
-                    console.error('Failed to pulse LED:', error);
-                })
-                .finally(() => {
-                    pulseInFlight = false;
-                });
+            await tj.pulse(options.pulseColor);
         }
 
         if (
             options.reminderIntervalMs &&
             options.reminderPhrases &&
             options.reminderPhrases.length > 0 &&
-            !reminderInFlight &&
             now >= nextReminderAt
         ) {
-            reminderInFlight = true;
             nextReminderAt = now + options.reminderIntervalMs;
-
-            void safeSpeak(randomItem(options.reminderPhrases)).finally(() => {
-                reminderInFlight = false;
-            });
+            const reminder = randomItem(options.reminderPhrases);
+            await tj.speak(reminder);
         }
 
-        const isFacePresent = await detectFace();
+        const imagePath = await tj.look();
+        const result = await tj.detectFaces(imagePath);
 
-        if (isFacePresent === targetPresent) {
+        if (result.isFaceDetected === targetPresent) {
             return;
         }
 
-        await sleep(FACE_POLL_INTERVAL_MS);
+        await tj.sleep(FACE_POLL_INTERVAL_MS);
     }
 };
 
 const cleanup = async (): Promise<void> => {
-    try {
-        await tj.shine('off');
-        await tj.raiseArm();
-    } catch (error) {
-        console.error('An error occurred during cleanup: ', error);
-    }
+    await tj.shine('off');
+    await tj.raiseArm();
 };
 
 process.on('SIGINT', () => {
@@ -158,18 +117,21 @@ const runPeekaboo = async (): Promise<void> => {
     while (running) {
         switch (state) {
             case GameState.WAITING_TO_START:
-                await tj.raiseArm();
-                await safeSpeak('Let\'s play peekaboo! Show me your face to begin.');
                 console.log('State: WAITING_TO_START (waiting for face to show)');
+                await tj.raiseArm();
+                await tj.speak("Let\'s play a game of peekaboo!");
+                await tj.speak("Show me your face to begin.");
                 await waitForFacePresence(true, {
                     pulseColor: 'yellow',
                 });
+                await tj.shine('green');
+                await tj.speak("I see you!");
+                await tj.speak("Let's begin the game.");
+                await tj.speak("Hide your face!");
                 state = GameState.PLAYER_HIDES;
                 break;
 
             case GameState.PLAYER_HIDES:
-                await tj.shine('green');
-                await safeSpeak("Let's begin! Hide your face!");
                 console.log('State: PLAYER_HIDES (waiting for face to disappear)');
                 await waitForFacePresence(false);
                 state = GameState.SEARCHING;
@@ -177,29 +139,29 @@ const runPeekaboo = async (): Promise<void> => {
 
             case GameState.SEARCHING: {
                 console.log('State: SEARCHING (looking for face)');
-
                 await waitForFacePresence(true, {
                     pulseColor: 'yellow',
                     reminderIntervalMs: SEARCH_REMINDER_INTERVAL_MS,
                     reminderPhrases: SEARCHING_REMINDERS,
                 });
                 state = GameState.FACE_FOUND;
-
                 break;
             }
 
             case GameState.FACE_FOUND:
+                console.log('State: FACE_FOUND (face detected)');
                 await tj.shine('green');
                 await tj.lowerArm();
-                await safeSpeak('Peekaboo, I found you!');
+                await tj.speak('Peekaboo, I found you!');
                 state = GameState.WAITING_FOR_NEXT_ROUND;
                 break;
 
             case GameState.WAITING_FOR_NEXT_ROUND:
+                console.log('State: WAITING_FOR_NEXT_ROUND (waiting for face to hide)');
                 await tj.raiseArm();
                 await tj.shine('orange');
-                await safeSpeak("Let's play again. Hide your face!");
-                console.log('State: WAITING_FOR_NEXT_ROUND (waiting for face to hide)');
+                await tj.speak("Let's play again.");
+                await tj.speak("Hide your face!");
                 await waitForFacePresence(false);
                 state = GameState.SEARCHING;
                 break;
