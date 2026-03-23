@@ -25,7 +25,6 @@ const tj = await TJBot.getInstance().initialize({
     }
 });
 
-
 const FACE_POLL_INTERVAL_MS = 150;
 const SEARCH_REMINDER_INTERVAL_MS = 5000;
 const LED_PULSE_INTERVAL_MS = 1000;
@@ -119,7 +118,7 @@ const runPeekaboo = async (): Promise<void> => {
             case GameState.WAITING_TO_START:
                 console.log('State: WAITING_TO_START (waiting for face to show)');
                 await tj.raiseArm();
-                await tj.speak("Let\'s play a game of peekaboo!");
+                await tj.speak("Let's play a game of peekaboo!");
                 await tj.speak("Show me your face to begin.");
                 await waitForFacePresence(true, {
                     pulseColor: 'yellow',
