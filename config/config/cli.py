@@ -1,7 +1,7 @@
 """
 Command-line interface for TJBot configuration tool.
 
-Provides commands: init, edit, validate, show, reset, backup, test
+Provides commands: init, edit, validate, show, reset, backup
 """
 
 import argparse
@@ -141,7 +141,7 @@ def cmd_backup(args):
         return 1
 
 
-def cmd_test(args):
+def cmd_validate(args):
     """Load and validate configuration."""
     console.print("\n[bold]Configuration Validation[/bold]\n")
 
@@ -216,8 +216,8 @@ def main():
     # backup command
     subparsers.add_parser('backup', help='Create manual backup of configuration')
 
-    # test command
-    subparsers.add_parser('test', help='Validate configuration and report any issues')
+    # validate command
+    subparsers.add_parser('validate', help='Validate configuration and report any issues')
 
     args = parser.parse_args()
 
@@ -232,7 +232,7 @@ def main():
         'show': cmd_show,
         'reset': cmd_reset,
         'backup': cmd_backup,
-        'test': cmd_test,
+        'validate': cmd_validate,
     }
 
     handler = command_map.get(args.command)

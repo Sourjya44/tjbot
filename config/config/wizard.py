@@ -111,16 +111,16 @@ class TJBotConfigEditor:
     # ── Navigation ──────────────────────────────────────────────────────────
 
     def _pick_section(self) -> Optional[str]:
-        dirty = ' [yellow]●[/yellow]' if self._modified else ''
+        status = '🟡' if self._modified else '🟢'
         choices: List[Tuple[str, str]] = [
-            ('  log      – Logging', 'log'),
-            ('  hardware – Hardware components', 'hardware'),
-            ('  listen   – Microphone + Speech-to-Text', 'listen'),
-            ('  see      – Camera + Vision', 'see'),
-            ('  shine    – LED', 'shine'),
-            ('  speak    – Speaker + Text-to-Speech', 'speak'),
-            ('  wave     – Servo', 'wave'),
-            (f'  💾 Save and exit{dirty}', 'save'),
+            ('  log      - Logging', 'log'),
+            ('  hardware - Hardware components', 'hardware'),
+            ('  listen   - Microphone + Speech-to-Text', 'listen'),
+            ('  see      - Camera + Vision', 'see'),
+            ('  shine    - LED', 'shine'),
+            ('  speak    - Speaker + Text-to-Speech', 'speak'),
+            ('  wave     - Servo', 'wave'),
+            (f'  💾 Save and exit {status}', 'save'),
             ('  ✖ Exit without saving', 'exit'),
         ]
         try:
@@ -157,6 +157,15 @@ class TJBotConfigEditor:
         _set_value(self.doc, path, value)
         self._modified = True
         console.print(f'[green]  ✓ {path} = {_fmt_current(value)}[/green]')
+
+    def _sync_led_flags(self) -> None:
+        """Keep aggregate hardware LED flag in sync with shine LED flags."""
+        has_neopixel = bool(self._get('shine.hasNeopixelLED', False))
+        has_common_anode = bool(self._get('shine.hasCommonAnodeLED', False))
+
+        _set_value(self.doc, 'shine.hasNeopixelLED', has_neopixel)
+        _set_value(self.doc, 'shine.hasCommonAnodeLED', has_common_anode)
+        _set_value(self.doc, 'hardware.led', has_neopixel or has_common_anode)
 
     # ── Prompt primitives ────────────────────────────────────────────────────
 
@@ -237,7 +246,7 @@ class TJBotConfigEditor:
             answers = inquirer.prompt(
                 [inquirer.Text(
                     name,
-                    message=f'{message}  (0.0 – 1.0)  [current: {_fmt_current(current)}]',
+                    message=f'{message}  (0.0 - 1.0)  [current: {_fmt_current(current)}]',
                     default=str(current) if current is not None else '',
                     validate=_validate,
                 )],
@@ -314,8 +323,9 @@ class TJBotConfigEditor:
         type_str: 'string' | 'integer' | 'float01' | 'boolean' | 'enum_servo'
         """
         while True:
+            label_width = max(len(label) for _, label, _ in fields)
             items = [
-                (f'  {label}   [{_fmt_current(self._get(path))}]', path)
+                (f'  {label.ljust(label_width)}   [{_fmt_current(self._get(path))}]', path)
                 for path, label, _ in fields
             ]
             items.append(('← Back', '__back__'))
@@ -323,7 +333,7 @@ class TJBotConfigEditor:
                 answers = inquirer.prompt(
                     [inquirer.List(
                         'field',
-                        message=f'{title} – select field to edit',
+                        message=f'{title} - select field to edit',
                         choices=items,
                     )],
                     raise_keyboard_interrupt=True,
@@ -358,10 +368,10 @@ class TJBotConfigEditor:
                     self._set(path, val)
             elif type_str == 'enum_servo':
                 val = self._prompt_enum('servo_pin', label, [
-                    ('GPIO 18 – recommended PWM pin', 18),
-                    ('GPIO 12 – PWM, no audio conflict', 12),
-                    ('GPIO 13 – PWM', 13),
-                    ('GPIO 19 – PWM', 19),
+                    ('GPIO 18 - recommended PWM pin', 18),
+                    ('GPIO 12 - PWM, no audio conflict', 12),
+                    ('GPIO 13 - PWM', 13),
+                    ('GPIO 19 - PWM', 19),
                 ], current)
                 if val is not None:
                     self._set(path, val)
@@ -369,32 +379,40 @@ class TJBotConfigEditor:
     # ── Section editors ──────────────────────────────────────────────────────
 
     def _edit_log(self):
-        console.print('\n[bold]log – Logging[/bold]\n')
+        console.print('\n[bold]log - Logging[/bold]\n')
         current = self._get('log.level', 'info')
         val = self._prompt_enum('level', 'Log level', [
-            ('info    – normal operation (recommended)', 'info'),
-            ('error   – errors only (quiet)', 'error'),
-            ('warning – reduced verbosity', 'warning'),
-            ('verbose – detailed operation logs', 'verbose'),
-            ('debug   – everything (very noisy)', 'debug'),
+            ('error   - errors only (quiet)', 'error'),
+            ('warning - reduced verbosity', 'warning'),
+            ('info    - normal operation (recommended)', 'info'),
+            ('verbose - detailed operation logs', 'verbose'),
+            ('debug   - developer logs (noisy)', 'debug'),
+            ('silly   - everything (very noisy)', 'silly'),
         ], current)
         if val is not None:
             self._set('log.level', val)
 
     def _edit_hardware(self):
-        console.print('\n[bold]hardware – Hardware components[/bold]\n')
+        console.print('\n[bold]hardware - Hardware components[/bold]\n')
         console.print('[dim]Select a device to toggle it on/off.[/dim]\n')
+        # Keep aggregate LED hardware flag aligned with shine LED selections.
+        self._sync_led_flags()
         fields = [
-            ('hardware.speaker',          'Speaker     (audio output)'),
-            ('hardware.microphone',       'Microphone  (audio input)'),
-            ('hardware.led_neopixel',     'NeoPixel LED (addressable RGB)'),
-            ('hardware.led_common_anode', 'Common Anode RGB LED'),
-            ('hardware.servo',            'Servo motor (arm)'),
             ('hardware.camera',           'Camera module'),
+            ('shine.hasNeopixelLED',      'NeoPixel LED'),
+            ('shine.hasCommonAnodeLED',   'Common Anode RGB LED'),
+            ('hardware.microphone',       'Microphone (audio input)'),
+            ('hardware.servo',            'Servo motor (arm)'),
+            ('hardware.speaker',          'Speaker (audio output)'),
         ]
         while True:
+            label_width = max(len(label) for _, label in fields)
             choices = [
-                (f'  {label}   [{_fmt_bool(self._get(path, False))}]', path)
+                (
+                    f'  {label.ljust(label_width)}   '
+                    f'[{_fmt_bool(self._get(path, False)):5}]',
+                    path,
+                )
                 for path, label in fields
             ]
             choices.append(('← Back', '__back__'))
@@ -409,6 +427,8 @@ class TJBotConfigEditor:
                 break
             path = answers['field']
             self._set(path, not bool(self._get(path, False)))
+            if path in ('shine.hasNeopixelLED', 'shine.hasCommonAnodeLED'):
+                self._sync_led_flags()
 
     def _edit_listen(self):
         if not self._get('hardware.microphone', False):
@@ -417,19 +437,20 @@ class TJBotConfigEditor:
                 'Enable it in the hardware section or listen will be '
                 'ignored at runtime.[/yellow]\n')
         while True:
-            console.print('\n[bold]listen – Microphone + Speech-to-Text[/bold]\n')
-            items = [
-                (f'  device             [{_fmt_current(self._get("listen.device", ""))}]',
-                 'device'),
-                (f'  microphoneRate     [{_fmt_current(self._get("listen.microphoneRate", 44100))} Hz]',
-                 'rate'),
-                (f'  microphoneChannels [{_fmt_current(self._get("listen.microphoneChannels", 2))}]',
-                 'channels'),
-                (f'  backend.type       [{_fmt_current(self._get("listen.backend.type", "local"))}]',
-                 'backend_type'),
-                ('  backend settings   (expand for current backend type)', 'backend_settings'),
-                ('← Back', '__back__'),
+            console.print('\n[bold]listen - Microphone + Speech-to-Text[/bold]\n')
+            rows = [
+                ('device', _fmt_current(self._get('listen.device', '')), 'device'),
+                ('microphoneRate', f"{_fmt_current(self._get('listen.microphoneRate', 44100))} Hz", 'rate'),
+                ('microphoneChannels', _fmt_current(self._get('listen.microphoneChannels', 2)), 'channels'),
+                ('backend.type', _fmt_current(self._get('listen.backend.type', 'local')), 'backend_type'),
             ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('  backend settings   (expand for current backend type)', 'backend_settings'))
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='listen configuration', choices=items)],
@@ -449,29 +470,29 @@ class TJBotConfigEditor:
 
             elif item == 'rate':
                 val = self._prompt_enum('rate', 'Microphone sample rate', [
-                    ('16000 Hz – recommended for offline speech models', 16000),
-                    ('44100 Hz – standard quality', 44100),
-                    ('48000 Hz – high quality', 48000),
-                    (' 8000 Hz – low bandwidth', 8000),
+                    ('16000 Hz - recommended for offline speech models', 16000),
+                    ('44100 Hz - standard quality', 44100),
+                    ('48000 Hz - high quality', 48000),
+                    (' 8000 Hz - low bandwidth', 8000),
                 ], self._get('listen.microphoneRate', 44100))
                 if val is not None:
                     self._set('listen.microphoneRate', val)
 
             elif item == 'channels':
                 val = self._prompt_enum('channels', 'Microphone channels', [
-                    ('1 – mono (typical for microphones)', 1),
-                    ('2 – stereo', 2),
+                    ('1 - mono (typical for microphones)', 1),
+                    ('2 - stereo', 2),
                 ], self._get('listen.microphoneChannels', 2))
                 if val is not None:
                     self._set('listen.microphoneChannels', val)
 
             elif item == 'backend_type':
                 val = self._prompt_enum('type', 'STT backend', [
-                    ('none             – disable speech-to-text', 'none'),
-                    ('local            – on-device Sherpa-ONNX (offline)', 'local'),
-                    ('ibm-watson-stt   – IBM Cloud STT (streaming)', 'ibm-watson-stt'),
-                    ('google-cloud-stt – Google Cloud STT (streaming)', 'google-cloud-stt'),
-                    ('azure-stt        – Microsoft Azure STT', 'azure-stt'),
+                    ('none             - disable speech-to-text', 'none'),
+                    ('local            - on-device Sherpa-ONNX (offline)', 'local'),
+                    ('ibm-watson-stt   - IBM Cloud STT (streaming)', 'ibm-watson-stt'),
+                    ('google-cloud-stt - Google Cloud STT (streaming)', 'google-cloud-stt'),
+                    ('azure-stt        - Microsoft Azure STT', 'azure-stt'),
                 ], self._get('listen.backend.type', 'local'))
                 if val is not None:
                     self._set('listen.backend.type', val)
@@ -504,14 +525,8 @@ class TJBotConfigEditor:
                 (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
             ]
         elif backend_type == 'google-cloud-stt':
-            fields = [
-                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
-                (f'{prefix}.model',                      'Model name',                      'string'),
-                (f'{prefix}.languageCode',               'Language code (e.g. en-US)',       'string'),
-                (f'{prefix}.enableAutomaticPunctuation', 'Automatic punctuation',           'boolean'),
-                (f'{prefix}.profanityFilter',            'Profanity filter',                'boolean'),
-                (f'{prefix}.interimResults',             'Interim results',                 'boolean'),
-            ]
+            self._edit_google_cloud_stt_settings(prefix)
+            return
         elif backend_type == 'azure-stt':
             fields = [
                 (f'{prefix}.language',       'Language (e.g. en-US)',  'string'),
@@ -524,6 +539,130 @@ class TJBotConfigEditor:
 
         self._edit_fields_menu(f'STT backend ({backend_type})', fields)
 
+    def _edit_google_cloud_stt_settings(self, prefix: str):
+        model_path = f'{prefix}.model'
+        region_path = f'{prefix}.region'
+        creds_path = f'{prefix}.credentialsPath'
+        lang_path = f'{prefix}.languageCode'
+        punct_path = f'{prefix}.enableAutomaticPunctuation'
+        profanity_path = f'{prefix}.profanityFilter'
+        interim_path = f'{prefix}.interimResults'
+
+        model_choices = [
+            ('chirp_3 (regions: us, eu)', 'chirp_3'),
+            ('chirp_2 (regions: us-central1, europe-west4, asia-southeast1)', 'chirp_2'),
+        ]
+        region_choices = {
+            'chirp_3': [('us', 'us'), ('eu', 'eu')],
+            'chirp_2': [
+                ('us-central1', 'us-central1'),
+                ('europe-west4', 'europe-west4'),
+                ('asia-southeast1', 'asia-southeast1'),
+            ],
+        }
+
+        while True:
+            rows = [
+                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
+                ('model', _fmt_current(self._get(model_path, 'chirp_3')), 'model'),
+                ('region', _fmt_current(self._get(region_path, 'us')), 'region'),
+                ('languageCode', _fmt_current(self._get(lang_path, 'en-US')), 'language'),
+                ('enableAutomaticPunctuation', f"{_fmt_bool(self._get(punct_path, True)):5}", 'punct'),
+                ('profanityFilter', f"{_fmt_bool(self._get(profanity_path, True)):5}", 'profanity'),
+                ('interimResults', f"{_fmt_bool(self._get(interim_path, False)):5}", 'interim'),
+            ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('← Back', '__back__'))
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='Google Cloud STT settings', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+
+            item = answers['item']
+            if item == 'credentials':
+                val = self._prompt_string(
+                    'google_stt_credentials',
+                    'Credentials file path',
+                    str(self._get(creds_path, '')),
+                )
+                if val is not None:
+                    self._set(creds_path, val)
+
+            elif item == 'model':
+                current_model = self._get(model_path, 'chirp_3')
+                selected_model = self._prompt_enum(
+                    'google_stt_model',
+                    'Google Cloud STT model',
+                    model_choices,
+                    current_model,
+                )
+                if selected_model is not None:
+                    self._set(model_path, selected_model)
+                    allowed_regions = [v for _, v in region_choices[selected_model]]
+                    current_region = self._get(region_path, '')
+                    if current_region not in allowed_regions:
+                        self._set(region_path, allowed_regions[0])
+
+            elif item == 'region':
+                selected_model = self._get(model_path, 'chirp_3')
+                if selected_model not in region_choices:
+                    selected_model = 'chirp_3'
+                    self._set(model_path, selected_model)
+                current_region = self._get(region_path, region_choices[selected_model][0][1])
+                selected_region = self._prompt_enum(
+                    'google_stt_region',
+                    f'Google Cloud STT region for {selected_model}',
+                    region_choices[selected_model],
+                    current_region,
+                )
+                if selected_region is not None:
+                    self._set(region_path, selected_region)
+
+            elif item == 'language':
+                val = self._prompt_string(
+                    'google_stt_language',
+                    'Language code (e.g. en-US)',
+                    str(self._get(lang_path, 'en-US')),
+                )
+                if val is not None:
+                    self._set(lang_path, val)
+
+            elif item == 'punct':
+                val = self._prompt_bool(
+                    'google_stt_punctuation',
+                    'Enable automatic punctuation',
+                    self._get(punct_path, True),
+                )
+                if val is not None:
+                    self._set(punct_path, val)
+
+            elif item == 'profanity':
+                val = self._prompt_bool(
+                    'google_stt_profanity',
+                    'Enable profanity filter',
+                    self._get(profanity_path, True),
+                )
+                if val is not None:
+                    self._set(profanity_path, val)
+
+            elif item == 'interim':
+                val = self._prompt_bool(
+                    'google_stt_interim',
+                    'Enable interim results',
+                    self._get(interim_path, False),
+                )
+                if val is not None:
+                    self._set(interim_path, val)
+
     def _edit_speak(self):
         if not self._get('hardware.speaker', False):
             console.print(
@@ -531,15 +670,18 @@ class TJBotConfigEditor:
                 'Enable it in the hardware section or speak will be '
                 'ignored at runtime.[/yellow]\n')
         while True:
-            console.print('\n[bold]speak – Speaker + Text-to-Speech[/bold]\n')
-            items = [
-                (f'  device          [{_fmt_current(self._get("speak.device", ""))}]',
-                 'device'),
-                (f'  backend.type    [{_fmt_current(self._get("speak.backend.type", "local"))}]',
-                 'backend_type'),
-                ('  backend settings (expand for current backend type)', 'backend_settings'),
-                ('← Back', '__back__'),
+            console.print('\n[bold]speak - Speaker + Text-to-Speech[/bold]\n')
+            rows = [
+                ('device', _fmt_current(self._get('speak.device', '')), 'device'),
+                ('backend.type', _fmt_current(self._get('speak.backend.type', 'local')), 'backend_type'),
             ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('  backend settings (expand for current backend type)', 'backend_settings'))
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='speak configuration', choices=items)],
@@ -559,11 +701,11 @@ class TJBotConfigEditor:
 
             elif item == 'backend_type':
                 val = self._prompt_enum('type', 'TTS backend', [
-                    ('none             – disable text-to-speech', 'none'),
-                    ('local            – on-device Sherpa-ONNX (offline)', 'local'),
-                    ('ibm-watson-tts   – IBM Cloud TTS', 'ibm-watson-tts'),
-                    ('google-cloud-tts – Google Cloud TTS', 'google-cloud-tts'),
-                    ('azure-tts        – Microsoft Azure TTS', 'azure-tts'),
+                    ('none             - disable text-to-speech', 'none'),
+                    ('local            - on-device Sherpa-ONNX (offline)', 'local'),
+                    ('ibm-watson-tts   - IBM Cloud TTS', 'ibm-watson-tts'),
+                    ('google-cloud-tts - Google Cloud TTS', 'google-cloud-tts'),
+                    ('azure-tts        - Microsoft Azure TTS', 'azure-tts'),
                 ], self._get('speak.backend.type', 'local'))
                 if val is not None:
                     self._set('speak.backend.type', val)
@@ -615,10 +757,13 @@ class TJBotConfigEditor:
         ]
 
         while True:
+            rows = [('model', _fmt_current(self._get(model_path, '')), 'model')]
+            label_width = max(len(label) for label, _, _ in rows)
             items = [
-                (f'  model             [{_fmt_current(self._get(model_path, ""))}]', 'model'),
-                ('← Back', '__back__'),
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
             ]
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='Local TTS settings', choices=items)],
@@ -663,11 +808,16 @@ class TJBotConfigEditor:
         ]
 
         while True:
-            items = [
-                (f'  credentialsPath   [{_fmt_current(self._get(creds_path, ""))}]', 'credentials'),
-                (f'  voice             [{_fmt_current(self._get(voice_path, ""))}]', 'voice'),
-                ('← Back', '__back__'),
+            rows = [
+                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
+                ('voice', _fmt_current(self._get(voice_path, '')), 'voice'),
             ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='IBM Watson TTS settings', choices=items)],
@@ -730,12 +880,17 @@ class TJBotConfigEditor:
         ]
 
         while True:
-            items = [
-                (f'  credentialsPath   [{_fmt_current(self._get(creds_path, ""))}]', 'credentials'),
-                (f'  languageCode      [{_fmt_current(self._get(lang_path, "en-US"))}]', 'language'),
-                (f'  voice             [{_fmt_current(self._get(voice_path, ""))}]', 'voice'),
-                ('← Back', '__back__'),
+            rows = [
+                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
+                ('languageCode', _fmt_current(self._get(lang_path, 'en-US')), 'language'),
+                ('voice', _fmt_current(self._get(voice_path, '')), 'voice'),
             ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='Google Cloud TTS settings', choices=items)],
@@ -807,11 +962,16 @@ class TJBotConfigEditor:
         ]
 
         while True:
-            items = [
-                (f'  credentialsPath   [{_fmt_current(self._get(creds_path, ""))}]', 'credentials'),
-                (f'  voice             [{_fmt_current(self._get(voice_path, ""))}]', 'voice'),
-                ('← Back', '__back__'),
+            rows = [
+                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
+                ('voice', _fmt_current(self._get(voice_path, '')), 'voice'),
             ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='Azure TTS settings', choices=items)],
@@ -862,19 +1022,23 @@ class TJBotConfigEditor:
                 'Enable it in the hardware section or see will be '
                 'ignored at runtime.[/yellow]\n')
         while True:
-            console.print('\n[bold]see – Camera + Vision[/bold]\n')
+            console.print('\n[bold]see - Camera + Vision[/bold]\n')
             res = self._get('see.cameraResolution', [1920, 1080])
-            items = [
-                (f'  cameraResolution   [{_fmt_current(res)}]', 'resolution'),
-                (f'  verticalFlip       [{_fmt_bool(self._get("see.verticalFlip", False))}]',
-                 'vflip'),
-                (f'  horizontalFlip     [{_fmt_bool(self._get("see.horizontalFlip", False))}]',
-                 'hflip'),
-                (f'  backend.type       [{_fmt_current(self._get("see.backend.type", "local"))}]',
-                 'backend_type'),
-                ('  backend settings   (expand for current backend type)', 'backend_settings'),
-                ('← Back', '__back__'),
+            rows = [
+                ('cameraResolution', _fmt_current(res), 'resolution'),
+                ('verticalFlip', f"{_fmt_bool(self._get('see.verticalFlip', False)):5}", 'vflip'),
+                ('horizontalFlip', f"{_fmt_bool(self._get('see.horizontalFlip', False)):5}", 'hflip'),
+                ('captureTimeout', _fmt_current(self._get('see.captureTimeout', 500)), 'capture_timeout'),
+                ('zeroShutterLag', f"{_fmt_bool(self._get('see.zeroShutterLag', False)):5}", 'zsl'),
+                ('backend.type', _fmt_current(self._get('see.backend.type', 'local')), 'backend_type'),
             ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('  backend settings   (expand for current backend type)', 'backend_settings'))
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='see configuration', choices=items)],
@@ -888,10 +1052,10 @@ class TJBotConfigEditor:
 
             if item == 'resolution':
                 val = self._prompt_enum('res', 'Camera resolution', [
-                    ('1920 × 1080  Full HD', [1920, 1080]),
-                    ('1280 ×  720  HD',      [1280, 720]),
-                    (' 640 ×  480  VGA',     [640, 480]),
-                    (' 320 ×  240  Low bandwidth', [320, 240]),
+                    ('1920 x 1080  Full HD', [1920, 1080]),
+                    ('1280 x  720  HD',      [1280, 720]),
+                    (' 640 x  480  VGA',     [640, 480]),
+                    (' 320 x  240  Low bandwidth', [320, 240]),
                 ], res)
                 if val is not None:
                     self._set('see.cameraResolution', val)
@@ -910,12 +1074,30 @@ class TJBotConfigEditor:
                 if val is not None:
                     self._set('see.horizontalFlip', val)
 
+            elif item == 'capture_timeout':
+                val = self._prompt_int(
+                    'capture_timeout',
+                    'Camera capture timeout in milliseconds',
+                    self._get('see.captureTimeout', 500),
+                )
+                if val is not None:
+                    self._set('see.captureTimeout', val)
+
+            elif item == 'zsl':
+                val = self._prompt_bool(
+                    'zsl',
+                    'Enable zero shutter lag',
+                    self._get('see.zeroShutterLag', False),
+                )
+                if val is not None:
+                    self._set('see.zeroShutterLag', val)
+
             elif item == 'backend_type':
                 val = self._prompt_enum('type', 'Vision backend', [
-                    ('none                – disable vision', 'none'),
-                    ('local               – on-device (offline)', 'local'),
-                    ('google-cloud-vision – Google Cloud Vision', 'google-cloud-vision'),
-                    ('azure-vision        – Microsoft Azure Vision', 'azure-vision'),
+                    ('none                - disable vision', 'none'),
+                    ('local               - on-device (offline)', 'local'),
+                    ('google-cloud-vision - Google Cloud Vision', 'google-cloud-vision'),
+                    ('azure-vision        - Microsoft Azure Vision', 'azure-vision'),
                 ], self._get('see.backend.type', 'local'))
                 if val is not None:
                     self._set('see.backend.type', val)
@@ -942,8 +1124,19 @@ class TJBotConfigEditor:
                 (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
                 (f'{prefix}.faceDetectionConfidence',       'Face detection confidence',       'float01'),
             ]
-        elif backend_type in ('google-cloud-vision', 'azure-vision'):
-            fields = [(f'{prefix}.credentialsPath', 'Credentials file path', 'string')]
+        elif backend_type == 'google-cloud-vision':
+            fields = [
+                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
+                (f'{prefix}.objectDetectionConfidence',  'Object detection confidence',     'float01'),
+                (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
+                (f'{prefix}.faceDetectionConfidence',    'Face detection confidence',       'float01'),
+            ]
+        elif backend_type == 'azure-vision':
+            fields = [
+                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
+                (f'{prefix}.objectDetectionConfidence',  'Object detection confidence',     'float01'),
+                (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
+            ]
         else:
             console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
             return
@@ -952,7 +1145,7 @@ class TJBotConfigEditor:
 
     def _edit_shine(self):
         while True:
-            console.print('\n[bold]shine – LED[/bold]\n')
+            console.print('\n[bold]shine - LED[/bold]\n')
             items = [
                 ('  NeoPixel LED settings',        'neopixel'),
                 ('  Common Anode RGB LED settings', 'commonanode'),
@@ -974,29 +1167,29 @@ class TJBotConfigEditor:
 
     def _edit_neopixel(self):
         rpi_model = self.system_info['raspberry_pi']['model']
-        if not self._get('hardware.led_neopixel', False):
+        if not bool(self._get('shine.hasNeopixelLED', False)):
             console.print(
-                '[yellow]  ⚠  hardware.led_neopixel is disabled. '
+                '[yellow]  ⚠  shine.hasNeopixelLED is disabled. '
                 'Enable it in the hardware section or NeoPixel will be '
                 'ignored at runtime.[/yellow]\n')
         while True:
-            console.print('\n[bold]shine.neopixel – NeoPixel LED[/bold]\n')
+            console.print('\n[bold]shine.neopixel - NeoPixel LED[/bold]\n')
             if rpi_model == '5':
-                items = [
-                    (f'  spiInterface   [{_fmt_current(self._get("shine.neopixel.spiInterface", "/dev/spidev0.0"))}]',
-                     'spi'),
-                    (f'  useGRBFormat   [{_fmt_bool(self._get("shine.neopixel.useGRBFormat", False))}]',
-                     'grb'),
-                    ('← Back', '__back__'),
+                rows = [
+                    ('spiInterface', _fmt_current(self._get('shine.neopixel.spiInterface', '/dev/spidev0.0')), 'spi'),
+                    ('useGRBFormat', f"{_fmt_bool(self._get('shine.neopixel.useGRBFormat', False)):5}", 'grb'),
                 ]
             else:
-                items = [
-                    (f'  gpioPin        [{_fmt_current(self._get("shine.neopixel.gpioPin", 21))}]',
-                     'pin'),
-                    (f'  useGRBFormat   [{_fmt_bool(self._get("shine.neopixel.useGRBFormat", False))}]',
-                     'grb'),
-                    ('← Back', '__back__'),
+                rows = [
+                    ('gpioPin', _fmt_current(self._get('shine.neopixel.gpioPin', 21)), 'pin'),
+                    ('useGRBFormat', f"{_fmt_bool(self._get('shine.neopixel.useGRBFormat', False)):5}", 'grb'),
                 ]
+            label_width = max(len(label) for label, _, _ in rows)
+            items = [
+                (f'  {label.ljust(label_width)}   [{value}]', key)
+                for label, value, key in rows
+            ]
+            items.append(('← Back', '__back__'))
             try:
                 answers = inquirer.prompt(
                     [inquirer.List('item', message='NeoPixel settings', choices=items)],
@@ -1009,10 +1202,10 @@ class TJBotConfigEditor:
 
             if answers['item'] == 'pin':
                 val = self._prompt_enum('pin', 'GPIO pin for NeoPixel (RPi 3/4)', [
-                    ('GPIO 21 – recommended (no audio/servo conflicts)', 21),
-                    ('GPIO 10 – works on all models (SPI MOSI)',         10),
-                    ('GPIO 12 – PWM, may conflict with servo',           12),
-                    ('GPIO 18 – conflicts with audio output',            18),
+                    ('GPIO 21 - recommended (no audio/servo conflicts)', 21),
+                    ('GPIO 10 - works on all models (SPI MOSI)',         10),
+                    ('GPIO 12 - PWM, may conflict with servo',           12),
+                    ('GPIO 18 - conflicts with audio output',            18),
                 ], self._get('shine.neopixel.gpioPin', 21))
                 if val is not None:
                     if val == 18:
@@ -1022,12 +1215,13 @@ class TJBotConfigEditor:
                     self._set('shine.neopixel.gpioPin', val)
 
             elif answers['item'] == 'spi':
-                val = self._prompt_enum('spi', 'SPI interface for NeoPixel (RPi 5)', [
-                    ('/dev/spidev0.0 – primary SPI bus (GPIO 10, recommended)', '/dev/spidev0.0'),
-                    ('/dev/spidev0.1 – secondary SPI bus', '/dev/spidev0.1'),
-                ], self._get('shine.neopixel.spiInterface', '/dev/spidev0.0'))
+                val = self._prompt_string(
+                    'spi_interface',
+                    'SPI interface for NeoPixel (RPi 5)',
+                    str(self._get('shine.neopixel.spiInterface', '/dev/spidev0.0')),
+                )
                 if val is not None:
-                    self._set('shine.neopixel.spiInterface', val)
+                    self._set('shine.neopixel.spiInterface', val.strip())
 
             elif answers['item'] == 'grb':
                 val = self._prompt_bool(
@@ -1038,12 +1232,12 @@ class TJBotConfigEditor:
                     self._set('shine.neopixel.useGRBFormat', val)
 
     def _edit_commonanode(self):
-        if not self._get('hardware.led_common_anode', False):
+        if not bool(self._get('shine.hasCommonAnodeLED', False)):
             console.print(
-                '[yellow]  ⚠  hardware.led_common_anode is disabled. '
+                '[yellow]  ⚠  shine.hasCommonAnodeLED is disabled. '
                 'Enable it in the hardware section or the common anode LED will be '
                 'ignored at runtime.[/yellow]\n')
-        console.print('\n[bold]shine.commonanode – Common Anode RGB LED[/bold]\n')
+        console.print('\n[bold]shine.commonanode - Common Anode RGB LED[/bold]\n')
         self._edit_fields_menu('Common Anode LED', [
             ('shine.commonanode.redPin',   'Red channel GPIO pin',   'integer'),
             ('shine.commonanode.greenPin', 'Green channel GPIO pin', 'integer'),
@@ -1056,7 +1250,7 @@ class TJBotConfigEditor:
                 '[yellow]  ⚠  hardware.servo is disabled. '
                 'Enable it in the hardware section or wave will be '
                 'ignored at runtime.[/yellow]\n')
-        console.print('\n[bold]wave – Servo[/bold]\n')
+        console.print('\n[bold]wave - Servo[/bold]\n')
         self._edit_fields_menu('Wave (Servo)', [
             ('wave.servoPin', 'Servo GPIO pin', 'enum_servo'),
         ])

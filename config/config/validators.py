@@ -307,14 +307,22 @@ class ConfigValidators:
         # Collect all GPIO pins in use
         pins_in_use = {}
 
+        shine_cfg = config.get('shine', {})
+
+        neopixel_enabled = bool(shine_cfg.get('hasNeopixelLED', False))
+        common_anode_enabled = bool(shine_cfg.get('hasCommonAnodeLED', False))
+
         # Check NeoPixel
-        if config.get('hardware', {}).get('led_neopixel', False):
-            pin = config.get('shine', {}).get('neopixel', {}).get('gpioPin')
-            if pin:
-                pins_in_use[pin] = 'NeoPixel LED'
+        if neopixel_enabled:
+            # NeoPixel pin conflicts only apply to PWM/GPIO mode (RPi 3/4).
+            # RPi 5 uses SPI interface for NeoPixel control.
+            if rpi_model in ('3', '4'):
+                pin = config.get('shine', {}).get('neopixel', {}).get('gpioPin')
+                if pin:
+                    pins_in_use[pin] = 'NeoPixel LED'
 
         # Check Common Anode
-        if config.get('hardware', {}).get('led_common_anode', False):
+        if common_anode_enabled:
             ca_config = config.get('shine', {}).get('commonanode', {})
             for color in ['redPin', 'greenPin', 'bluePin']:
                 pin = ca_config.get(color)
