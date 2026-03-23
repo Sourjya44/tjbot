@@ -84,6 +84,13 @@ check_latest_release() {
     response=$(curl -s --max-time 5 "$GITHUB_API_ENDPOINT" 2>/dev/null)
 
     if [ -z "$response" ]; then
+        echo "ERROR_NO_NETWORK"
+        return 1
+    fi
+
+    # Check for 404 (Not Found) - no releases published yet
+    if echo "$response" | grep -q '"message":"Not Found"'; then
+        echo "ERROR_NO_RELEASES"
         return 1
     fi
 
@@ -91,6 +98,7 @@ check_latest_release() {
     tag_name=$(echo "$response" | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
 
     if [ -z "$tag_name" ]; then
+        echo "ERROR_NO_RELEASES"
         return 1
     fi
 
@@ -878,10 +886,16 @@ case "$1" in
         current_version=$(get_current_version)
         latest_version=$(check_latest_release)
 
-        if [ -z "$latest_version" ]; then
-            echo -e "${RED}Error: Could not check for latest release${NC}"
+        if [ "$latest_version" = "ERROR_NO_NETWORK" ]; then
+            echo -e "${RED}Error: Could not connect to GitHub${NC}"
             echo "Please check your internet connection and try again."
             exit 1
+        fi
+
+        if [ "$latest_version" = "ERROR_NO_RELEASES" ]; then
+            echo -e "${YELLOW}No releases available yet${NC}"
+            echo "Check back later for official TJBot releases."
+            exit 0
         fi
 
         echo "Current version: $current_version"
