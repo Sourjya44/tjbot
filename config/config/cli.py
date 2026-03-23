@@ -1,7 +1,7 @@
 """
 Command-line interface for TJBot configuration tool.
 
-Provides commands: init, edit, validate, test, show, reset, backup, restore, export, import
+Provides commands: init, edit, validate, show, reset, backup, test
 """
 
 import argparse
@@ -11,160 +11,62 @@ from pathlib import Path
 from config import __version__
 from config.config_loader import ConfigLoader
 from config.config_writer import ConfigWriter
-from config.device_detection import get_system_info
 from config.validators import validate_config
 from config.credential_guides.validator import CredentialValidator
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
 
 console = Console()
 
-
-def _inquirer():
-    """Lazy import inquirer for interactive commands."""
-    import inquirer
-    return inquirer
-
-
-def _build_editor_wizard():
-    """Create and initialize wizard instance for advanced editing."""
-    from config.wizard import InitWizard
-
-    wizard = InitWizard()
-    wizard._load_existing_config()
-    wizard.config = dict(wizard.existing_config) if wizard.existing_config else {}
-    wizard.system_info = get_system_info()
-    return wizard
-
-def _edit_listen_configuration(wizard):
-    """Edit microphone and STT configuration."""
-    wizard.config.setdefault('hardware', {})['microphone'] = True
-    wizard._configure_microphone()
-    wizard._configure_listen_backend()
-
-
-def _edit_see_configuration(wizard):
-    """Edit camera and vision configuration."""
-    wizard.config.setdefault('hardware', {})['camera'] = True
-    wizard._configure_camera()
-    wizard._configure_see_backend()
-
-
-def _edit_shine_configuration(wizard):
-    """Edit LED configuration."""
-    inquirer = _inquirer()
-    questions = [
-        inquirer.List(
-            'led_type',
-            message='Select LED configuration to edit',
-            choices=[
-                ('NeoPixel LED', 'neopixel'),
-                ('Common Anode RGB LED', 'common_anode'),
-            ],
-            default='neopixel'
-        )
-    ]
-
-    answers = inquirer.prompt(questions)
-    if not answers:
-        return
-
-    wizard.config.setdefault('hardware', {})['led_neopixel'] = answers['led_type'] == 'neopixel'
-    wizard.config['hardware']['led_common_anode'] = answers['led_type'] == 'common_anode'
-
-    if answers['led_type'] == 'neopixel':
-        wizard._configure_neopixel()
-    else:
-        wizard._configure_common_anode()
-
-
-def _edit_speak_configuration(wizard):
-    """Edit speaker and TTS configuration."""
-    wizard.config.setdefault('hardware', {})['speaker'] = True
-    wizard._configure_speaker()
-    wizard._configure_speak_backend()
-
-
-def _edit_wave_configuration(wizard):
-    """Edit servo configuration."""
-    wizard.config.setdefault('hardware', {})['servo'] = True
-    wizard._configure_servo()
-
-
-def _run_advanced_editor():
-    """Run interactive advanced editor with hierarchical section list."""
-    inquirer = _inquirer()
-    wizard = _build_editor_wizard()
-
-    while True:
-        questions = [
-            inquirer.List(
-                'section',
-                message='Select configuration section to edit',
-                choices=[
-                    ('Logging mode', 'logging'),
-                    ('Hardware configuration', 'hardware'),
-                    ('Listen configuration (Microphone + Speech-to-Text)', 'listen'),
-                    ('See configuration (Camera + Vision)', 'see'),
-                    ('Shine configuration (LED)', 'shine'),
-                    ('Speak configuration (Speaker + Text-to-Speech)', 'speak'),
-                    ('Wave configuration (Servo)', 'wave'),
-                    ('💾 Save and exit', 'save'),
-                    ('🚪 Exit without saving', 'exit'),
-                ],
-                default='logging'
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return 130
-
-        section = answers['section']
-
-        if section == 'logging':
-            wizard._configure_logging()
-        elif section == 'hardware':
-            wizard._configure_hardware()
-        elif section == 'listen':
-            _edit_listen_configuration(wizard)
-        elif section == 'see':
-            _edit_see_configuration(wizard)
-        elif section == 'shine':
-            _edit_shine_configuration(wizard)
-        elif section == 'speak':
-            _edit_speak_configuration(wizard)
-        elif section == 'wave':
-            _edit_wave_configuration(wizard)
-        elif section == 'save':
-            writer = ConfigWriter()
-            if writer.write_config(wizard.config, add_comments=True, create_backup=True):
-                console.print("\n[green]✓ Configuration saved[/green]\n")
-                return 0
-            console.print("\n[red]✗ Failed to save configuration[/red]\n")
-            return 1
-        elif section == 'exit':
-            console.print("\n[yellow]No changes saved[/yellow]\n")
-            return 0
+_CONFIG_DIR = Path.home() / '.tjbot'
+_CONFIG_PATH = _CONFIG_DIR / 'tjbot.toml'
 
 
 def cmd_init(args):
-    """Run initialization wizard."""
-    from config.wizard import run_init_wizard
+    """
+    Create ~/.tjbot/tjbot.toml from the canonical upstream default.
 
-    try:
-        success = run_init_wizard()
-        return 0 if success else 1
-    except Exception as e:
-        console.print(f"\n[red]Error: {e}[/red]\n")
-        return 1
+    If the file already exists the user is prompted before overwriting.
+    """
+    from config.wizard import download_default_config
+
+    if _CONFIG_PATH.exists():
+        console.print(
+            f'\n[yellow]Configuration already exists at {_CONFIG_PATH}[/yellow]\n')
+        try:
+            answer = input('Overwrite with a fresh default copy? [y/N] ').strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            console.print('\n[yellow]Cancelled.[/yellow]\n')
+            return 0
+        if answer != 'y':
+            console.print('[yellow]Keeping existing configuration.[/yellow]\n')
+            return 0
+        # Create a backup before overwriting
+        writer = ConfigWriter()
+        backup = writer.create_backup(_CONFIG_PATH)
+        if backup:
+            console.print(f'[dim]Backup saved to {backup}[/dim]\n')
+
+    ok = download_default_config(_CONFIG_DIR, _CONFIG_PATH)
+    return 0 if ok else 1
 
 
 def cmd_edit(args):
-    """Run advanced editor."""
-    console.print("\n[bold yellow]TJBot Configuration Editor[/bold yellow]\n")
-    return _run_advanced_editor()
+    """
+    Open the interactive hierarchical configuration editor.
+
+    If ~/.tjbot/tjbot.toml does not yet exist, it is downloaded from the
+    canonical upstream default first.
+    """
+    from config.wizard import ensure_config_exists, run_editor
+
+    console.print()
+    if not ensure_config_exists(_CONFIG_DIR, _CONFIG_PATH):
+        console.print(
+            '[red]Cannot open editor – no configuration file available.[/red]\n')
+        return 1
+
+    return run_editor(_CONFIG_PATH)
 
 
 def cmd_validate(args):
@@ -177,7 +79,7 @@ def cmd_validate(args):
     # Check if config exists
     if not loader.has_user_config():
         console.print(f"[yellow]! No configuration file found at {loader.get_user_config_path()}[/yellow]")
-        console.print(f"[yellow]  Run 'config init' to create one.[/yellow]\n")
+        console.print(f"[yellow]  Run 'tjbot config init' to create one.[/yellow]\n")
         return 1
 
     # Load and validate config
@@ -232,7 +134,7 @@ def cmd_show(args):
 
     if not loader.has_user_config():
         console.print(f"[yellow]No configuration file found[/yellow]")
-        console.print(f"Run 'config init' to create one.\n")
+        console.print(f"Run 'tjbot config init' to create one.\n")
         return 1
 
     try:
@@ -326,10 +228,16 @@ def main():
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
     # init command
-    subparsers.add_parser('init', help='Run initialization wizard (beginner mode)')
+    subparsers.add_parser(
+        'init',
+        help='Download the default tjbot.toml to ~/.tjbot/ (prompts before overwriting)',
+    )
 
     # edit command
-    subparsers.add_parser('edit', help='Run advanced configuration editor')
+    subparsers.add_parser(
+        'edit',
+        help='Open the interactive configuration editor (default when no subcommand given)',
+    )
 
     # validate command
     subparsers.add_parser('validate', help='Validate configuration and credentials')
@@ -352,10 +260,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Show help if no command provided
+    # Plain `tjbot config` (no subcommand) is a shortcut for `tjbot config edit`
     if not args.command:
-        parser.print_help()
-        return 0
+        args.command = 'edit'
 
     # Route to appropriate command handler
     command_map = {

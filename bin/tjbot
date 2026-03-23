@@ -845,6 +845,11 @@ case "$1" in
             exit 1
         fi
 
+        # Plain `tjbot config` with no subcommand defaults to the editor.
+        if [ $# -eq 0 ]; then
+            exec uv run config.py edit
+        fi
+
         exec uv run config.py "$@"
         ;;
 

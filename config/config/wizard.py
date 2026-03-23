@@ -1,579 +1,884 @@
 """
-Initialization wizard for TJBot configuration.
+Schema-driven hierarchical configuration editor for TJBot.
 
-Guides users through hardware and service setup with interactive prompts.
+All editing is performed directly on the live tomlkit document so that
+every comment, blank line, and ordering from the downloaded default TOML
+is preserved on save.
 """
 
-import inquirer
-from pathlib import Path
-from rich.console import Console
-from rich.panel import Panel
+from __future__ import annotations
 
-from config.config_writer import ConfigWriter
-from config.config_loader import ConfigLoader
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import inquirer
+import inquirer.errors
+import tomlkit
+from rich.console import Console
+
 from config.device_detection import DeviceDetection, get_system_info
-from config.validators import ConfigValidators
-from config.model_registry import ModelRegistry
-from config.credential_guides.ibm_cloud import run_ibm_wizard
-from config.credential_guides.google_cloud import run_google_wizard
-from config.credential_guides.azure import run_azure_wizard
 
 console = Console()
 
+DEFAULT_TOML_URL = (
+    'https://raw.githubusercontent.com/tjbot-ce/node-tjbotlib'
+    '/refs/heads/main/src/config/tjbot.default.toml'
+)
 
-class InitWizard:
-    """Interactive initialization wizard for TJBot configuration."""
 
-    def __init__(self):
-        self.config = {}
-        self.system_info = dict()
-        self.config_dir = Path.home() / '.tjbot'
-        self.config_file = self.config_dir / 'tjbot.toml'
-        self.detector = DeviceDetection()
-        self.validators = ConfigValidators()
-        self.existing_config = None
+# ── TOML document helpers ────────────────────────────────────────────────────
 
-    def run(self):
-        """Run the complete initialization wizard."""
-        console.print("\n[bold cyan]TJBot Configuration Wizard[/bold cyan]\n")
-
-        # Check for existing configuration
-        if self.config_file.exists():
-            console.print("[yellow]Existing configuration found![/yellow]")
-            console.print("Current settings will be used as defaults.\n")
-            self._load_existing_config()
-        else:
-            console.print("This wizard will help you configure your TJBot hardware and services.")
-
-        console.print("Press Ctrl+C at any time to cancel.\n")
-
-        # Detect system
-        console.print("[dim]Detecting your system...[/dim]")
-        self.system_info = get_system_info()
-        rpi_model = self.system_info['raspberry_pi']['model']
-        console.print(f"[dim]✓ Detected Raspberry Pi {rpi_model}[/dim]\n")
-
-        # Hardware selection
-        self._configure_hardware()
-
-        # Backend selection
-        if self.config.get('hardware', {}).get('microphone'):
-            self._configure_listen_backend()
-
-        if self.config.get('hardware', {}).get('speaker'):
-            self._configure_speak_backend()
-
-        if self.config.get('hardware', {}).get('camera'):
-            self._configure_see_backend()
-
-        # Logging level
-        self._configure_logging()
-
-        # Write configuration
-        if self._write_configuration():
-            console.print("\n[bold green]✓ Configuration complete![/bold green]")
-            console.print(f"[green]Configuration saved to: {self.config_dir / 'tjbot.toml'}[/green]\n")
-            return True
-        else:
-            console.print("\n[red]✗ Failed to save configuration[/red]\n")
-            return False
-
-    def _load_existing_config(self):
-        """Load existing configuration file."""
-        try:
-            loader = ConfigLoader()
-            self.existing_config = loader.load_user_config()
-        except Exception as e:
-            console.print(f"[yellow]Warning: Could not load existing config: {e}[/yellow]")
-            self.existing_config = None
-
-    def _get_existing(self, path: str, default=None):
-        """Get value from existing config using dot notation."""
-        if not self.existing_config:
-            return default
-
-        keys = path.split('.')
-        value = self.existing_config
+def _get_value(doc, path: str, default=None) -> Any:
+    """Return the value at *path* (dot-separated) or *default* if absent."""
+    keys = path.split('.')
+    node = doc
+    try:
         for key in keys:
-            if isinstance(value, dict) and key in value:
-                value = value[key]
-            else:
-                return default
-        return value
+            node = node[key]
+        # Normalise tomlkit containers to plain Python for reliable comparisons
+        if isinstance(node, list):
+            return [v for v in node]
+        return node
+    except (KeyError, TypeError):
+        return default
 
-    def _configure_hardware(self):
-        """Ask about hardware devices."""
-        console.print("[bold]Hardware Setup[/bold]\n")
 
-        hardware_choices = [
-            ('Speaker (audio output)', 'speaker'),
-            ('Microphone (audio input)', 'microphone'),
-            ('LED (NeoPixel)', 'led_neopixel'),
-            ('LED (Common Anode RGB)', 'led_common_anode'),
-            ('Servo motor (arm)', 'servo'),
-            ('Camera', 'camera'),
+def _set_value(doc, path: str, value) -> None:
+    """Set *value* at *path*, creating intermediate tomlkit tables as needed."""
+    keys = path.split('.')
+    node = doc
+    for key in keys[:-1]:
+        if key not in node:
+            node[key] = tomlkit.table()
+        node = node[key]
+    node[keys[-1]] = value
+
+
+# ── Display helpers ──────────────────────────────────────────────────────────
+
+def _fmt_bool(v) -> str:
+    if v is True:
+        return 'true'
+    if v is False:
+        return 'false'
+    return str(v)
+
+
+def _fmt_current(value) -> str:
+    if value is None:
+        return '(not set)'
+    if isinstance(value, bool):
+        return _fmt_bool(value)
+    if isinstance(value, list):
+        return ', '.join(str(x) for x in value)
+    if value == '':
+        return '(empty)'
+    return str(value)
+
+
+# ── Editor ───────────────────────────────────────────────────────────────────
+
+class TJBotConfigEditor:
+    """Interactive hierarchical editor that operates on a tomlkit document."""
+
+    def __init__(self, doc):
+        self.doc = doc
+        self.system_info = get_system_info()
+        self._modified = False
+
+    # ── Public ──────────────────────────────────────────────────────────────
+
+    def run(self) -> bool:
+        """
+        Show the top-level section menu and loop until Save or Exit.
+        Returns True if the user chose to save.
+        """
+        console.print('\n[bold cyan]TJBot Configuration Editor[/bold cyan]')
+        console.print('[dim]Arrow keys to navigate · Enter to select · Ctrl-C to cancel[/dim]\n')
+
+        while True:
+            choice = self._pick_section()
+            if choice is None or choice == 'exit':
+                if self._modified:
+                    console.print('\n[yellow]Exited without saving. '
+                                  'Run "tjbot config edit" to edit again.[/yellow]\n')
+                return False
+            if choice == 'save':
+                return True
+            self._edit_section(choice)
+
+    # ── Navigation ──────────────────────────────────────────────────────────
+
+    def _pick_section(self) -> Optional[str]:
+        dirty = ' [yellow]●[/yellow]' if self._modified else ''
+        choices: List[Tuple[str, str]] = [
+            ('  log      – Logging', 'log'),
+            ('  hardware – Hardware components', 'hardware'),
+            ('  listen   – Microphone + Speech-to-Text', 'listen'),
+            ('  see      – Camera + Vision', 'see'),
+            ('  shine    – LED', 'shine'),
+            ('  speak    – Speaker + Text-to-Speech', 'speak'),
+            ('  wave     – Servo', 'wave'),
+            (f'  💾 Save and exit{dirty}', 'save'),
+            ('  ✖ Exit without saving', 'exit'),
         ]
-
-        # Build defaults from existing config or use reasonable defaults
-        defaults = []
-        if self._get_existing('hardware.speaker', False):
-            defaults.append('speaker')
-        if self._get_existing('hardware.microphone', False):
-            defaults.append('microphone')
-        if self._get_existing('hardware.led_neopixel', False):
-            defaults.append('led_neopixel')
-        if self._get_existing('hardware.led_common_anode', False):
-            defaults.append('led_common_anode')
-        if self._get_existing('hardware.servo', False):
-            defaults.append('servo')
-        if self._get_existing('hardware.camera', False):
-            defaults.append('camera')
-
-        # If no existing config, use reasonable defaults
-        if not defaults:
-            defaults = ['speaker', 'microphone', 'led_neopixel', 'servo', 'camera']
-
-        questions = [
-            inquirer.Checkbox(
-                'hardware',
-                message='Select the hardware you want to enable (press space to select, enter to confirm)',
-                choices=hardware_choices,
-                default=defaults
+        try:
+            answers = inquirer.prompt(
+                [inquirer.List('section', message='Select section to configure', choices=choices)],
+                raise_keyboard_interrupt=True,
             )
-        ]
+        except KeyboardInterrupt:
+            return 'exit'
+        if answers is None:
+            return 'exit'
+        return answers['section']
 
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        # Initialize hardware config
-        self.config['hardware'] = {
-            'speaker': 'speaker' in answers['hardware'],
-            'microphone': 'microphone' in answers['hardware'],
-            'led_neopixel': 'led_neopixel' in answers['hardware'],
-            'led_common_anode': 'led_common_anode' in answers['hardware'],
-            'servo': 'servo' in answers['hardware'],
-            'camera': 'camera' in answers['hardware'],
+    def _edit_section(self, key: str):
+        dispatch = {
+            'log': self._edit_log,
+            'hardware': self._edit_hardware,
+            'listen': self._edit_listen,
+            'see': self._edit_see,
+            'shine': self._edit_shine,
+            'speak': self._edit_speak,
+            'wave': self._edit_wave,
         }
+        fn = dispatch.get(key)
+        if fn:
+            fn()
 
-        # Configure GPIO for LEDs
-        if self.config['hardware']['led_neopixel']:
-            self._configure_neopixel()
+    # ── Internal helpers ─────────────────────────────────────────────────────
 
-        if self.config['hardware']['led_common_anode']:
-            self._configure_common_anode()
+    def _get(self, path: str, default=None) -> Any:
+        return _get_value(self.doc, path, default)
 
-        # Configure servo
-        if self.config['hardware']['servo']:
-            self._configure_servo()
+    def _set(self, path: str, value) -> None:
+        _set_value(self.doc, path, value)
+        self._modified = True
+        console.print(f'[green]  ✓ {path} = {_fmt_current(value)}[/green]')
 
-        # Configure audio devices
-        if self.config['hardware']['speaker']:
-            self._configure_speaker()
+    # ── Prompt primitives ────────────────────────────────────────────────────
 
-        if self.config['hardware']['microphone']:
-            self._configure_microphone()
+    def _prompt_enum(self, name: str, message: str,
+                     choices: List[Tuple[str, Any]], current) -> Optional[Any]:
+        """Single-select list prompt."""
+        values = [v for _, v in choices]
+        default = current if current in values else (values[0] if values else None)
+        try:
+            answers = inquirer.prompt(
+                [inquirer.List(
+                    name,
+                    message=f'{message}  [current: {_fmt_current(current)}]',
+                    choices=choices,
+                    default=default,
+                )],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+        return answers[name]
 
-        # Configure camera
-        if self.config['hardware']['camera']:
-            self._configure_camera()
+    def _prompt_bool(self, name: str, message: str, current) -> Optional[bool]:
+        return self._prompt_enum(
+            name, message,
+            [('Yes (true)', True), ('No (false)', False)],
+            bool(current) if current is not None else False,
+        )
 
-        console.print()
+    def _prompt_string(self, name: str, message: str, current: str) -> Optional[str]:
+        try:
+            answers = inquirer.prompt(
+                [inquirer.Text(name, message=message, default=str(current) if current else '')],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+        return answers[name]
 
-    def _configure_neopixel(self):
-        """Configure NeoPixel LED GPIO pin."""
-        rpi_model = self.system_info['raspberry_pi']['model']
-        recommended_pin = self.system_info['recommended_led_pin']
+    def _prompt_int(self, name: str, message: str, current) -> Optional[int]:
+        def _validate(_, x):
+            try:
+                int(x)
+                return True
+            except ValueError:
+                raise inquirer.errors.ValidationError('', reason='Enter a whole number.')
+        try:
+            answers = inquirer.prompt(
+                [inquirer.Text(
+                    name,
+                    message=f'{message}  [current: {_fmt_current(current)}]',
+                    default=str(current) if current is not None else '',
+                    validate=_validate,
+                )],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+        return int(answers[name])
 
-        if rpi_model == '5':
-            valid_pins = [10]
-            console.print("[yellow]Note: Raspberry Pi 5 only supports GPIO 10 for NeoPixel[/yellow]")
-            pin = 10
+    def _prompt_float01(self, name: str, message: str, current) -> Optional[float]:
+        def _validate(_, x):
+            try:
+                v = float(x)
+                if not (0.0 <= v <= 1.0):
+                    raise inquirer.errors.ValidationError(
+                        '', reason='Value must be between 0.0 and 1.0.')
+                return True
+            except ValueError:
+                raise inquirer.errors.ValidationError('', reason='Enter a decimal number.')
+        try:
+            answers = inquirer.prompt(
+                [inquirer.Text(
+                    name,
+                    message=f'{message}  (0.0 – 1.0)  [current: {_fmt_current(current)}]',
+                    default=str(current) if current is not None else '',
+                    validate=_validate,
+                )],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+        return float(answers[name])
+
+    # ── Audio device picker ──────────────────────────────────────────────────
+
+    def _pick_audio_device(self, direction: str) -> Optional[str]:
+        """direction: 'input' for microphone, 'output' for speaker."""
+        dd = DeviceDetection()
+        if direction == 'input':
+            devices = dd.detect_audio_input_devices()
+            cmd_hint = 'arecord -l'
         else:
-            valid_pins = [10, 12, 18, 21]
-            existing_pin = self._get_existing('shine.neopixel.gpioPin', recommended_pin)
-            questions = [
-                inquirer.List(
-                    'neopixel_pin',
-                    message='Select GPIO pin for NeoPixel LED',
-                    choices=[
-                        (f'GPIO {recommended_pin} (recommended)', recommended_pin),
-                        *[(f'GPIO {p}', p) for p in valid_pins if p != recommended_pin]
-                    ],
-                    default=existing_pin
+            devices = dd.detect_audio_output_devices()
+            cmd_hint = 'aplay -l'
+
+        if not devices:
+            console.print(
+                f'[yellow]  No hardware audio devices detected '
+                f'(run `{cmd_hint}` to check).[/yellow]'
+            )
+
+        choices: List[Tuple[str, str]] = [
+            (dd.format_device_for_display(d), d['id']) for d in devices
+        ]
+        choices.append(('  Enter device ID manually', '__manual__'))
+
+        try:
+            answers = inquirer.prompt(
+                [inquirer.List('dev', message='Select audio device', choices=choices)],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+
+        if answers['dev'] == '__manual__':
+            import re as _re
+            def _validate_device(_, x):
+                if _re.match(r'^(plughw|hw):\d+,\d+$', x) or x in ('default', 'sysdefault', ''):
+                    return True
+                raise inquirer.errors.ValidationError(
+                    '', reason='Use plughw:C,D format (e.g. plughw:2,0) or leave blank for auto.')
+            try:
+                m = inquirer.prompt(
+                    [inquirer.Text(
+                        'dev',
+                        message='Enter device ID (e.g. plughw:2,0), or leave blank for auto',
+                        default='',
+                        validate=_validate_device,
+                    )],
+                    raise_keyboard_interrupt=True,
                 )
+            except KeyboardInterrupt:
+                return None
+            return m['dev'] if m else None
+
+        return answers['dev']
+
+    # ── Generic fields menu ──────────────────────────────────────────────────
+
+    def _edit_fields_menu(self, title: str,
+                          fields: List[Tuple[str, str, str]]) -> None:
+        """
+        Present a looping menu for a list of (path, label, type_str) field entries.
+        type_str: 'string' | 'integer' | 'float01' | 'boolean' | 'enum_servo'
+        """
+        while True:
+            items = [
+                (f'  {label}   [{_fmt_current(self._get(path))}]', path)
+                for path, label, _ in fields
             ]
-            answers = inquirer.prompt(questions)
-            if not answers:
-                return
-            pin = answers['neopixel_pin']
+            items.append(('← Back', '__back__'))
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List(
+                        'field',
+                        message=f'{title} – select field to edit',
+                        choices=items,
+                    )],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['field'] == '__back__':
+                break
+            sel = answers['field']
+            entry = next((e for e in fields if e[0] == sel), None)
+            if entry is None:
+                break
+            path, label, type_str = entry
+            current = self._get(path)
 
-        self.config.setdefault('shine', {}).setdefault('neopixel', {})['gpioPin'] = pin
+            if type_str == 'boolean':
+                val = self._prompt_bool(path.replace('.', '_'), label, current)
+                if val is not None:
+                    self._set(path, val)
+            elif type_str == 'string':
+                val = self._prompt_string(path.replace('.', '_'), label,
+                                          str(current) if current is not None else '')
+                if val is not None:
+                    self._set(path, val)
+            elif type_str == 'integer':
+                val = self._prompt_int(path.replace('.', '_'), label, current)
+                if val is not None:
+                    self._set(path, val)
+            elif type_str == 'float01':
+                val = self._prompt_float01(path.replace('.', '_'), label, current)
+                if val is not None:
+                    self._set(path, val)
+            elif type_str == 'enum_servo':
+                val = self._prompt_enum('servo_pin', label, [
+                    ('GPIO 18 – recommended PWM pin', 18),
+                    ('GPIO 12 – PWM, no audio conflict', 12),
+                    ('GPIO 13 – PWM', 13),
+                    ('GPIO 19 – PWM', 19),
+                ], current)
+                if val is not None:
+                    self._set(path, val)
 
-        if pin == 18:
-            console.print("[yellow]⚠ Warning: GPIO 18 may conflict with audio output[/yellow]")
+    # ── Section editors ──────────────────────────────────────────────────────
 
-    def _configure_common_anode(self):
-        """Configure common anode RGB LED pins."""
-        questions = [
-            inquirer.Text('red_pin', message='GPIO pin for RED channel',
-                         default=str(self._get_existing('shine.commonanode.redPin', 19))),
-            inquirer.Text('green_pin', message='GPIO pin for GREEN channel',
-                         default=str(self._get_existing('shine.commonanode.greenPin', 13))),
-            inquirer.Text('blue_pin', message='GPIO pin for BLUE channel',
-                         default=str(self._get_existing('shine.commonanode.bluePin', 12))),
+    def _edit_log(self):
+        console.print('\n[bold]log – Logging[/bold]\n')
+        current = self._get('log.level', 'info')
+        val = self._prompt_enum('level', 'Log level', [
+            ('info    – normal operation (recommended)', 'info'),
+            ('error   – errors only (quiet)', 'error'),
+            ('warning – reduced verbosity', 'warning'),
+            ('verbose – detailed operation logs', 'verbose'),
+            ('debug   – everything (very noisy)', 'debug'),
+        ], current)
+        if val is not None:
+            self._set('log.level', val)
+
+    def _edit_hardware(self):
+        console.print('\n[bold]hardware – Hardware components[/bold]\n')
+        console.print('[dim]Select a device to toggle it on/off.[/dim]\n')
+        fields = [
+            ('hardware.speaker',          'Speaker     (audio output)'),
+            ('hardware.microphone',       'Microphone  (audio input)'),
+            ('hardware.led_neopixel',     'NeoPixel LED (addressable RGB)'),
+            ('hardware.led_common_anode', 'Common Anode RGB LED'),
+            ('hardware.servo',            'Servo motor (arm)'),
+            ('hardware.camera',           'Camera module'),
         ]
+        while True:
+            choices = [
+                (f'  {label}   [{_fmt_bool(self._get(path, False))}]', path)
+                for path, label in fields
+            ]
+            choices.append(('← Back', '__back__'))
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('field', message='Toggle hardware device', choices=choices)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['field'] == '__back__':
+                break
+            path = answers['field']
+            self._set(path, not bool(self._get(path, False)))
 
-        answers = inquirer.prompt(questions)
-        if not answers:
+    def _edit_listen(self):
+        if not self._get('hardware.microphone', False):
+            console.print(
+                '[yellow]  ⚠  hardware.microphone is disabled. '
+                'Enable it in the hardware section or listen will be '
+                'ignored at runtime.[/yellow]\n')
+        while True:
+            console.print('\n[bold]listen – Microphone + Speech-to-Text[/bold]\n')
+            items = [
+                (f'  device             [{_fmt_current(self._get("listen.device", ""))}]',
+                 'device'),
+                (f'  microphoneRate     [{_fmt_current(self._get("listen.microphoneRate", 44100))} Hz]',
+                 'rate'),
+                (f'  microphoneChannels [{_fmt_current(self._get("listen.microphoneChannels", 2))}]',
+                 'channels'),
+                (f'  backend.type       [{_fmt_current(self._get("listen.backend.type", "local"))}]',
+                 'backend_type'),
+                ('  backend settings   (expand for current backend type)', 'backend_settings'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='listen configuration', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+            item = answers['item']
+
+            if item == 'device':
+                console.print('[dim]Detecting audio input devices...[/dim]')
+                val = self._pick_audio_device('input')
+                if val is not None:
+                    self._set('listen.device', val)
+
+            elif item == 'rate':
+                val = self._prompt_enum('rate', 'Microphone sample rate', [
+                    ('16000 Hz – recommended for offline speech models', 16000),
+                    ('44100 Hz – standard quality', 44100),
+                    ('48000 Hz – high quality', 48000),
+                    (' 8000 Hz – low bandwidth', 8000),
+                ], self._get('listen.microphoneRate', 44100))
+                if val is not None:
+                    self._set('listen.microphoneRate', val)
+
+            elif item == 'channels':
+                val = self._prompt_enum('channels', 'Microphone channels', [
+                    ('1 – mono (typical for microphones)', 1),
+                    ('2 – stereo', 2),
+                ], self._get('listen.microphoneChannels', 2))
+                if val is not None:
+                    self._set('listen.microphoneChannels', val)
+
+            elif item == 'backend_type':
+                val = self._prompt_enum('type', 'STT backend', [
+                    ('none             – disable speech-to-text', 'none'),
+                    ('local            – on-device Sherpa-ONNX (offline)', 'local'),
+                    ('ibm-watson-stt   – IBM Cloud STT (streaming)', 'ibm-watson-stt'),
+                    ('google-cloud-stt – Google Cloud STT (streaming)', 'google-cloud-stt'),
+                    ('azure-stt        – Microsoft Azure STT', 'azure-stt'),
+                ], self._get('listen.backend.type', 'local'))
+                if val is not None:
+                    self._set('listen.backend.type', val)
+
+            elif item == 'backend_settings':
+                self._edit_stt_backend_settings()
+
+    def _edit_stt_backend_settings(self):
+        backend_type = self._get('listen.backend.type', 'local')
+        console.print(
+            f'\n[bold]STT backend settings[/bold]  [dim](type: {backend_type})[/dim]\n')
+
+        if backend_type == 'none':
+            console.print('[yellow]  No settings for backend type "none".[/yellow]\n')
             return
 
-        self.config.setdefault('shine', {}).setdefault('commonanode', {})['redPin'] = int(answers['red_pin'])
-        self.config['shine']['commonanode']['greenPin'] = int(answers['green_pin'])
-        self.config['shine']['commonanode']['bluePin'] = int(answers['blue_pin'])
-
-    def _configure_servo(self):
-        """Configure servo GPIO pin."""
-        existing_servo_pin = self._get_existing('wave.servoPin', 18)
-        questions = [
-            inquirer.List(
-                'servo_pin',
-                message='Select GPIO pin for servo motor',
-                choices=[
-                    ('GPIO 18 (recommended)', 18),
-                    ('GPIO 12', 12),
-                    ('GPIO 13', 13),
-                    ('GPIO 19', 19),
-                ],
-                default=existing_servo_pin
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
+        prefix = f'listen.backend.{backend_type}'
+        if backend_type == 'local':
+            fields = [
+                (f'{prefix}.model',       'Model name',     'string'),
+                (f'{prefix}.vad.enabled', 'VAD enabled',    'boolean'),
+                (f'{prefix}.vad.model',   'VAD model name', 'string'),
+            ]
+        elif backend_type == 'ibm-watson-stt':
+            fields = [
+                (f'{prefix}.model',                      'Model name',                      'string'),
+                (f'{prefix}.inactivityTimeout',          'Inactivity timeout (s, -1=off)',  'integer'),
+                (f'{prefix}.backgroundAudioSuppression', 'Background audio suppression',    'float01'),
+                (f'{prefix}.interimResults',             'Interim results',                 'boolean'),
+                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
+            ]
+        elif backend_type == 'google-cloud-stt':
+            fields = [
+                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
+                (f'{prefix}.model',                      'Model name',                      'string'),
+                (f'{prefix}.languageCode',               'Language code (e.g. en-US)',       'string'),
+                (f'{prefix}.enableAutomaticPunctuation', 'Automatic punctuation',           'boolean'),
+                (f'{prefix}.profanityFilter',            'Profanity filter',                'boolean'),
+                (f'{prefix}.interimResults',             'Interim results',                 'boolean'),
+            ]
+        elif backend_type == 'azure-stt':
+            fields = [
+                (f'{prefix}.language',       'Language (e.g. en-US)',  'string'),
+                (f'{prefix}.credentialsPath', 'Credentials file path', 'string'),
+                (f'{prefix}.interimResults',  'Interim results',       'boolean'),
+            ]
+        else:
+            console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
             return
 
-        self.config.setdefault('wave', {})['servoPin'] = answers['servo_pin']
+        self._edit_fields_menu(f'STT backend ({backend_type})', fields)
 
-    def _configure_speaker(self):
-        """Configure speaker audio device."""
-        output_devices = self.system_info['audio_output']
+    def _edit_speak(self):
+        if not self._get('hardware.speaker', False):
+            console.print(
+                '[yellow]  ⚠  hardware.speaker is disabled. '
+                'Enable it in the hardware section or speak will be '
+                'ignored at runtime.[/yellow]\n')
+        while True:
+            console.print('\n[bold]speak – Speaker + Text-to-Speech[/bold]\n')
+            items = [
+                (f'  device          [{_fmt_current(self._get("speak.device", ""))}]',
+                 'device'),
+                (f'  backend.type    [{_fmt_current(self._get("speak.backend.type", "local"))}]',
+                 'backend_type'),
+                ('  backend settings (expand for current backend type)', 'backend_settings'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='speak configuration', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+            item = answers['item']
 
-        existing_device = self._get_existing('speak.device', '')
+            if item == 'device':
+                console.print('[dim]Detecting audio output devices...[/dim]')
+                val = self._pick_audio_device('output')
+                if val is not None:
+                    self._set('speak.device', val)
 
-        if not output_devices:
-            console.print("[yellow]No audio output devices detected. Using default.[/yellow]")
-            self.config['speak'] = {'device': existing_device}
+            elif item == 'backend_type':
+                val = self._prompt_enum('type', 'TTS backend', [
+                    ('none             – disable text-to-speech', 'none'),
+                    ('local            – on-device Sherpa-ONNX (offline)', 'local'),
+                    ('ibm-watson-tts   – IBM Cloud TTS', 'ibm-watson-tts'),
+                    ('google-cloud-tts – Google Cloud TTS', 'google-cloud-tts'),
+                    ('azure-tts        – Microsoft Azure TTS', 'azure-tts'),
+                ], self._get('speak.backend.type', 'local'))
+                if val is not None:
+                    self._set('speak.backend.type', val)
+
+            elif item == 'backend_settings':
+                self._edit_tts_backend_settings()
+
+    def _edit_tts_backend_settings(self):
+        backend_type = self._get('speak.backend.type', 'local')
+        console.print(
+            f'\n[bold]TTS backend settings[/bold]  [dim](type: {backend_type})[/dim]\n')
+
+        if backend_type == 'none':
+            console.print('[yellow]  No settings for backend type "none".[/yellow]\n')
             return
 
-        # Create choices from detected devices
-        choices = [(self.detector.format_device_for_display(dev), dev['id'])
-                   for dev in output_devices[:5]]  # Limit to first 5
-        choices.append(('Manual entry', 'manual'))
+        prefix = f'speak.backend.{backend_type}'
+        if backend_type == 'local':
+            fields = [(f'{prefix}.model', 'Model name', 'string')]
+        elif backend_type == 'ibm-watson-tts':
+            fields = [
+                (f'{prefix}.credentialsPath', 'Credentials file path',             'string'),
+                (f'{prefix}.voice',           'Voice (e.g. en-US_MichaelV3Voice)', 'string'),
+            ]
+        elif backend_type == 'google-cloud-tts':
+            fields = [
+                (f'{prefix}.credentialsPath', 'Credentials file path',  'string'),
+                (f'{prefix}.languageCode',    'Language code (e.g. en-US)', 'string'),
+                (f'{prefix}.voice',           'Voice name',            'string'),
+            ]
+        elif backend_type == 'azure-tts':
+            fields = [
+                (f'{prefix}.credentialsPath', 'Credentials file path', 'string'),
+                (f'{prefix}.voice',           'Voice name',            'string'),
+            ]
+        else:
+            console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
+            return
 
-        # Try to find existing device in choices, otherwise use first choice
-        default_choice = choices[0][1]
-        for label, device_id in choices:
-            if device_id == existing_device:
-                default_choice = device_id
+        self._edit_fields_menu(f'TTS backend ({backend_type})', fields)
+
+    def _edit_see(self):
+        if not self._get('hardware.camera', False):
+            console.print(
+                '[yellow]  ⚠  hardware.camera is disabled. '
+                'Enable it in the hardware section or see will be '
+                'ignored at runtime.[/yellow]\n')
+        while True:
+            console.print('\n[bold]see – Camera + Vision[/bold]\n')
+            res = self._get('see.cameraResolution', [1920, 1080])
+            items = [
+                (f'  cameraResolution   [{_fmt_current(res)}]', 'resolution'),
+                (f'  verticalFlip       [{_fmt_bool(self._get("see.verticalFlip", False))}]',
+                 'vflip'),
+                (f'  horizontalFlip     [{_fmt_bool(self._get("see.horizontalFlip", False))}]',
+                 'hflip'),
+                (f'  backend.type       [{_fmt_current(self._get("see.backend.type", "local"))}]',
+                 'backend_type'),
+                ('  backend settings   (expand for current backend type)', 'backend_settings'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='see configuration', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+            item = answers['item']
+
+            if item == 'resolution':
+                val = self._prompt_enum('res', 'Camera resolution', [
+                    ('1920 × 1080  Full HD', [1920, 1080]),
+                    ('1280 ×  720  HD',      [1280, 720]),
+                    (' 640 ×  480  VGA',     [640, 480]),
+                    (' 320 ×  240  Low bandwidth', [320, 240]),
+                ], res)
+                if val is not None:
+                    self._set('see.cameraResolution', val)
+
+            elif item == 'vflip':
+                val = self._prompt_bool(
+                    'vflip', 'Flip camera image vertically',
+                    self._get('see.verticalFlip', False))
+                if val is not None:
+                    self._set('see.verticalFlip', val)
+
+            elif item == 'hflip':
+                val = self._prompt_bool(
+                    'hflip', 'Flip camera image horizontally',
+                    self._get('see.horizontalFlip', False))
+                if val is not None:
+                    self._set('see.horizontalFlip', val)
+
+            elif item == 'backend_type':
+                val = self._prompt_enum('type', 'Vision backend', [
+                    ('none                – disable vision', 'none'),
+                    ('local               – on-device (offline)', 'local'),
+                    ('google-cloud-vision – Google Cloud Vision', 'google-cloud-vision'),
+                    ('azure-vision        – Microsoft Azure Vision', 'azure-vision'),
+                ], self._get('see.backend.type', 'local'))
+                if val is not None:
+                    self._set('see.backend.type', val)
+
+            elif item == 'backend_settings':
+                self._edit_vision_backend_settings()
+
+    def _edit_vision_backend_settings(self):
+        backend_type = self._get('see.backend.type', 'local')
+        console.print(
+            f'\n[bold]Vision backend settings[/bold]  [dim](type: {backend_type})[/dim]\n')
+
+        if backend_type == 'none':
+            console.print('[yellow]  No settings for backend type "none".[/yellow]\n')
+            return
+
+        prefix = f'see.backend.{backend_type}'
+        if backend_type == 'local':
+            fields = [
+                (f'{prefix}.objectDetectionModel',          'Object detection model',          'string'),
+                (f'{prefix}.imageClassificationModel',      'Image classification model',      'string'),
+                (f'{prefix}.faceDetectionModel',            'Face detection model',            'string'),
+                (f'{prefix}.objectDetectionConfidence',     'Object detection confidence',     'float01'),
+                (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
+                (f'{prefix}.faceDetectionConfidence',       'Face detection confidence',       'float01'),
+            ]
+        elif backend_type in ('google-cloud-vision', 'azure-vision'):
+            fields = [(f'{prefix}.credentialsPath', 'Credentials file path', 'string')]
+        else:
+            console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
+            return
+
+        self._edit_fields_menu(f'Vision backend ({backend_type})', fields)
+
+    def _edit_shine(self):
+        while True:
+            console.print('\n[bold]shine – LED[/bold]\n')
+            items = [
+                ('  NeoPixel LED settings',        'neopixel'),
+                ('  Common Anode RGB LED settings', 'commonanode'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='shine configuration', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+            if answers['item'] == 'neopixel':
+                self._edit_neopixel()
+            elif answers['item'] == 'commonanode':
+                self._edit_commonanode()
+
+    def _edit_neopixel(self):
+        rpi_model = self.system_info['raspberry_pi']['model']
+        if not self._get('hardware.led_neopixel', False):
+            console.print(
+                '[yellow]  ⚠  hardware.led_neopixel is disabled. '
+                'Enable it in the hardware section or NeoPixel will be '
+                'ignored at runtime.[/yellow]\n')
+        while True:
+            console.print('\n[bold]shine.neopixel – NeoPixel LED[/bold]\n')
+            if rpi_model == '5':
+                items = [
+                    (f'  spiInterface   [{_fmt_current(self._get("shine.neopixel.spiInterface", "/dev/spidev0.0"))}]',
+                     'spi'),
+                    (f'  useGRBFormat   [{_fmt_bool(self._get("shine.neopixel.useGRBFormat", False))}]',
+                     'grb'),
+                    ('← Back', '__back__'),
+                ]
+            else:
+                items = [
+                    (f'  gpioPin        [{_fmt_current(self._get("shine.neopixel.gpioPin", 21))}]',
+                     'pin'),
+                    (f'  useGRBFormat   [{_fmt_bool(self._get("shine.neopixel.useGRBFormat", False))}]',
+                     'grb'),
+                    ('← Back', '__back__'),
+                ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='NeoPixel settings', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
                 break
 
-        questions = [
-            inquirer.List(
-                'speaker_device',
-                message='Select audio output device for speaker',
-                choices=choices,
-                default=default_choice
-            )
-        ]
+            if answers['item'] == 'pin':
+                val = self._prompt_enum('pin', 'GPIO pin for NeoPixel (RPi 3/4)', [
+                    ('GPIO 21 – recommended (no audio/servo conflicts)', 21),
+                    ('GPIO 10 – works on all models (SPI MOSI)',         10),
+                    ('GPIO 12 – PWM, may conflict with servo',           12),
+                    ('GPIO 18 – conflicts with audio output',            18),
+                ], self._get('shine.neopixel.gpioPin', 21))
+                if val is not None:
+                    if val == 18:
+                        console.print(
+                            '[yellow]  ⚠  GPIO 18 conflicts with audio output. '
+                            'Use GPIO 21 to avoid issues.[/yellow]')
+                    self._set('shine.neopixel.gpioPin', val)
 
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
+            elif answers['item'] == 'spi':
+                val = self._prompt_enum('spi', 'SPI interface for NeoPixel (RPi 5)', [
+                    ('/dev/spidev0.0 – primary SPI bus (GPIO 10, recommended)', '/dev/spidev0.0'),
+                    ('/dev/spidev0.1 – secondary SPI bus', '/dev/spidev0.1'),
+                ], self._get('shine.neopixel.spiInterface', '/dev/spidev0.0'))
+                if val is not None:
+                    self._set('shine.neopixel.spiInterface', val)
 
-        if answers['speaker_device'] == 'manual':
-            manual_q = [inquirer.Text('device', message='Enter device ID (e.g., plughw:0,0)')]
-            manual_a = inquirer.prompt(manual_q)
-            device = manual_a['device'] if manual_a else ''
-        else:
-            device = answers['speaker_device']
+            elif answers['item'] == 'grb':
+                val = self._prompt_bool(
+                    'grb',
+                    'Use GRB color format (enable if colors appear swapped)',
+                    self._get('shine.neopixel.useGRBFormat', False))
+                if val is not None:
+                    self._set('shine.neopixel.useGRBFormat', val)
 
-        self.config['speak'] = {'device': device}
+    def _edit_commonanode(self):
+        if not self._get('hardware.led_common_anode', False):
+            console.print(
+                '[yellow]  ⚠  hardware.led_common_anode is disabled. '
+                'Enable it in the hardware section or the common anode LED will be '
+                'ignored at runtime.[/yellow]\n')
+        console.print('\n[bold]shine.commonanode – Common Anode RGB LED[/bold]\n')
+        self._edit_fields_menu('Common Anode LED', [
+            ('shine.commonanode.redPin',   'Red channel GPIO pin',   'integer'),
+            ('shine.commonanode.greenPin', 'Green channel GPIO pin', 'integer'),
+            ('shine.commonanode.bluePin',  'Blue channel GPIO pin',  'integer'),
+        ])
 
-    def _configure_microphone(self):
-        """Configure microphone audio device."""
-        input_devices = self.system_info['audio_input']
-
-        existing_device = self._get_existing('listen.device', '')
-
-        if not input_devices:
-            console.print("[yellow]No audio input devices detected. Using default.[/yellow]")
-            self.config['listen'] = {'device': existing_device, 'microphoneRate': 44100, 'microphoneChannels': 2}
-            return
-
-        # Create choices from detected devices
-        choices = [(self.detector.format_device_for_display(dev), dev['id'])
-                   for dev in input_devices[:5]]
-        choices.append(('Manual entry', 'manual'))
-
-        # Try to find existing device in choices, otherwise use first choice
-        default_choice = choices[0][1]
-        for label, device_id in choices:
-            if device_id == existing_device:
-                default_choice = device_id
-                break
-
-        questions = [
-            inquirer.List(
-                'mic_device',
-                message='Select audio input device for microphone',
-                choices=choices,
-                default=default_choice
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        if answers['mic_device'] == 'manual':
-            manual_q = [inquirer.Text('device', message='Enter device ID (e.g., plughw:2,0)')]
-            manual_a = inquirer.prompt(manual_q)
-            device = manual_a['device'] if manual_a else ''
-        else:
-            device = answers['mic_device']
-
-        self.config.setdefault('listen', {})['device'] = device
-        self.config['listen']['microphoneRate'] = 44100
-        self.config['listen']['microphoneChannels'] = 2
-
-    def _configure_camera(self):
-        """Configure camera settings."""
-        existing_resolution = self._get_existing('see.cameraResolution', [1920, 1080])
-        questions = [
-            inquirer.List(
-                'resolution',
-                message='Select camera resolution',
-                choices=[
-                    ('1920x1080 (Full HD)', [1920, 1080]),
-                    ('1280x720 (HD)', [1280, 720]),
-                    ('640x480 (VGA)', [640, 480]),
-                ],
-                default=existing_resolution
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config['see'] = {
-            'cameraResolution': answers['resolution'],
-            'verticalFlip': False,
-            'horizontalFlip': False
-        }
-
-    def _configure_listen_backend(self):
-        """Configure speech-to-text backend."""
-        console.print("\n[bold]Speech-to-Text Backend[/bold]\n")
-
-        existing_backend = self._get_existing('listen.backend.type', 'local')
-        questions = [
-            inquirer.List(
-                'backend',
-                message='Choose speech-to-text backend',
-                choices=[
-                    ('Local (offline, free, private)', 'local'),
-                    ('IBM Watson (cloud, accurate)', 'ibm-watson-stt'),
-                    ('Google Cloud (cloud, requires billing)', 'google-cloud-stt'),
-                    ('Microsoft Azure (cloud, requires billing)', 'azure-stt'),
-                ],
-                default=existing_backend
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config.setdefault('listen', {}).setdefault('backend', {})['type'] = answers['backend']
-
-        if answers['backend'] == 'local':
-            self._configure_local_stt()
-        elif answers['backend'] == 'ibm-watson-stt':
-            console.print("\n[cyan]IBM Watson credentials will be configured...[/cyan]")
-            run_ibm_wizard(self.config_dir, ['speech-to-text'])
-        elif answers['backend'] == 'google-cloud-stt':
-            console.print("\n[cyan]Google Cloud credentials will be configured...[/cyan]")
-            run_google_wizard(self.config_dir)
-        elif answers['backend'] == 'azure-stt':
-            console.print("\n[cyan]Azure credentials will be configured...[/cyan]")
-            run_azure_wizard(self.config_dir, ['speech'])
-
-        console.print()
-
-    def _configure_local_stt(self):
-        """Configure local STT model."""
-        registry = ModelRegistry()
-        models = registry.get_stt_models()
-
-        choices = [(registry.format_model_option(m), m['key']) for m in models]
-        existing_model = self._get_existing('listen.backend.local.model', models[0]['key'] if models else None)
-
-        questions = [
-            inquirer.List(
-                'model',
-                message='Select speech recognition model',
-                choices=choices,
-                default=existing_model
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config['listen']['backend']['local'] = {'model': answers['model']}
-        self.config['listen']['backend']['local']['vad'] = {'enabled': True, 'model': 'silero-vad'}
-
-    def _configure_speak_backend(self):
-        """Configure text-to-speech backend."""
-        console.print("\n[bold]Text-to-Speech Backend[/bold]\n")
-
-        existing_backend = self._get_existing('speak.backend.type', 'local')
-        questions = [
-            inquirer.List(
-                'backend',
-                message='Choose text-to-speech backend',
-                choices=[
-                    ('Local (offline, free, private)', 'local'),
-                    ('IBM Watson (cloud, natural)', 'ibm-watson-tts'),
-                    ('Google Cloud (cloud, requires billing)', 'google-cloud-tts'),
-                    ('Microsoft Azure (cloud, requires billing)', 'azure-tts'),
-                ],
-                default=existing_backend
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config.setdefault('speak', {}).setdefault('backend', {})['type'] = answers['backend']
-
-        if answers['backend'] == 'local':
-            self._configure_local_tts()
-        elif answers['backend'] == 'ibm-watson-tts':
-            console.print("\n[cyan]IBM Watson credentials will be configured...[/cyan]")
-            run_ibm_wizard(self.config_dir, ['text-to-speech'])
-        elif answers['backend'] == 'google-cloud-tts':
-            if 'google-credentials.json' not in [f.name for f in self.config_dir.glob('*')]:
-                console.print("\n[cyan]Google Cloud credentials will be configured...[/cyan]")
-                run_google_wizard(self.config_dir)
-        elif answers['backend'] == 'azure-tts':
-            if 'azure-credentials.env' not in [f.name for f in self.config_dir.glob('*')]:
-                console.print("\n[cyan]Azure credentials will be configured...[/cyan]")
-                run_azure_wizard(self.config_dir, ['speech'])
-
-        console.print()
-
-    def _configure_local_tts(self):
-        """Configure local TTS model."""
-        registry = ModelRegistry()
-        models = registry.get_tts_models()
-
-        choices = [(registry.format_model_option(m), m['key']) for m in models]
-        existing_model = self._get_existing('speak.backend.local.model', models[0]['key'] if models else None)
-
-        questions = [
-            inquirer.List(
-                'model',
-                message='Select voice model',
-                choices=choices,
-                default=existing_model
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config['speak']['backend']['local'] = {'model': answers['model']}
-
-    def _configure_see_backend(self):
-        """Configure computer vision backend."""
-        console.print("\n[bold]Computer Vision Backend[/bold]\n")
-
-        existing_backend = self._get_existing('see.backend.type', 'local')
-        questions = [
-            inquirer.List(
-                'backend',
-                message='Choose computer vision backend',
-                choices=[
-                    ('Local (offline, free, private)', 'local'),
-                    ('Google Cloud (cloud, requires billing)', 'google-cloud-vision'),
-                    ('Microsoft Azure (cloud, requires billing)', 'azure-vision'),
-                ],
-                default=existing_backend
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config.setdefault('see', {}).setdefault('backend', {})['type'] = answers['backend']
-
-        if answers['backend'] == 'local':
-            self.config['see']['backend']['local'] = {
-                'objectDetectionModel': 'ssd-mobilenet-v2',
-                'imageClassificationModel': 'mobilenetv3',
-                'faceDetectionModel': 'scrfd-2.5g',
-                'objectDetectionConfidence': 0.8,
-                'imageClassificationConfidence': 0.8,
-                'faceDetectionConfidence': 0.5,
-            }
-        elif answers['backend'] == 'google-cloud-vision':
-            if 'google-credentials.json' not in [f.name for f in self.config_dir.glob('*')]:
-                console.print("\n[cyan]Google Cloud credentials will be configured...[/cyan]")
-                run_google_wizard(self.config_dir)
-        elif answers['backend'] == 'azure-vision':
-            if 'azure-credentials.env' not in [f.name for f in self.config_dir.glob('*')]:
-                console.print("\n[cyan]Azure credentials will be configured...[/cyan]")
-                run_azure_wizard(self.config_dir, ['vision'])
-
-        console.print()
-
-    def _configure_logging(self):
-        """Configure logging level."""
-        existing_log_level = self._get_existing('log.level', 'info')
-        questions = [
-            inquirer.List(
-                'log_level',
-                message='Select logging verbosity',
-                choices=[
-                    ('Info (recommended)', 'info'),
-                    ('Verbose (detailed)', 'verbose'),
-                    ('Debug (everything)', 'debug'),
-                    ('Error (quiet)', 'error'),
-                ],
-                default=existing_log_level
-            )
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return
-
-        self.config['log'] = {'level': answers['log_level']}
-
-    def _write_configuration(self):
-        """Write configuration to file."""
-        writer = ConfigWriter()
-        return writer.write_config(self.config, add_comments=True, create_backup=False)
+    def _edit_wave(self):
+        if not self._get('hardware.servo', False):
+            console.print(
+                '[yellow]  ⚠  hardware.servo is disabled. '
+                'Enable it in the hardware section or wave will be '
+                'ignored at runtime.[/yellow]\n')
+        console.print('\n[bold]wave – Servo[/bold]\n')
+        self._edit_fields_menu('Wave (Servo)', [
+            ('wave.servoPin', 'Servo GPIO pin', 'enum_servo'),
+        ])
 
 
-def run_init_wizard():
-    """Run the initialization wizard."""
-    wizard = InitWizard()
-    return wizard.run()
+# ── Bootstrap helpers ─────────────────────────────────────────────────────────
+
+def download_default_config(config_dir: Path, config_path: Path) -> bool:
+    """
+    Fetch the canonical default TJBot TOML from GitHub and write it to *config_path*.
+    Creates *config_dir* if necessary. Returns True on success.
+    """
+    import requests  # lazily imported so the module is importable without network
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_dir.chmod(0o755)
+
+    console.print('[dim]Downloading default configuration from GitHub...[/dim]')
+    try:
+        resp = requests.get(DEFAULT_TOML_URL, timeout=15)
+        resp.raise_for_status()
+        config_path.write_text(resp.text, encoding='utf-8')
+        config_path.chmod(0o644)
+        console.print(f'[green]✓ Default configuration saved to {config_path}[/green]\n')
+        return True
+    except Exception as exc:
+        console.print(f'[red]✗ Failed to download default config: {exc}[/red]')
+        console.print(
+            f'[yellow]  Check your internet connection or create {config_path} manually.[/yellow]\n')
+        return False
+
+
+def ensure_config_exists(config_dir: Path, config_path: Path) -> bool:
+    """Return True if *config_path* already exists OR was successfully downloaded."""
+    if config_path.exists():
+        return True
+    return download_default_config(config_dir, config_path)
+
+
+# ── Editor entry point ────────────────────────────────────────────────────────
+
+def run_editor(config_path: Path) -> int:
+    """
+    Load *config_path* as a tomlkit document, run the interactive editor,
+    and write back the mutated document on save — preserving all comments.
+    Returns a shell exit code (0 = ok, 1 = error, 130 = cancelled).
+    """
+    from config.config_writer import ConfigWriter
+
+    try:
+        raw = config_path.read_text(encoding='utf-8')
+        doc = tomlkit.parse(raw)
+    except Exception as exc:
+        console.print(f'[red]Error loading config: {exc}[/red]\n')
+        return 1
+
+    editor = TJBotConfigEditor(doc)
+    want_save = editor.run()
+
+    if not want_save:
+        return 0
+
+    writer = ConfigWriter()
+    writer.create_backup(config_path)
+    writer.cleanup_old_backups()
+
+    try:
+        config_path.write_text(tomlkit.dumps(doc), encoding='utf-8')
+        config_path.chmod(0o644)
+        console.print(f'\n[green]✓ Configuration saved to {config_path}[/green]\n')
+        return 0
+    except Exception as exc:
+        console.print(f'[red]✗ Error saving configuration: {exc}[/red]\n')
+        return 1
+
