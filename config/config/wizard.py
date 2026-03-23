@@ -582,28 +582,278 @@ class TJBotConfigEditor:
 
         prefix = f'speak.backend.{backend_type}'
         if backend_type == 'local':
-            fields = [(f'{prefix}.model', 'Model name', 'string')]
+            self._edit_local_tts_settings(prefix)
+            return
         elif backend_type == 'ibm-watson-tts':
-            fields = [
-                (f'{prefix}.credentialsPath', 'Credentials file path',             'string'),
-                (f'{prefix}.voice',           'Voice (e.g. en-US_MichaelV3Voice)', 'string'),
-            ]
+            self._edit_ibm_watson_tts_settings(prefix)
+            return
         elif backend_type == 'google-cloud-tts':
-            fields = [
-                (f'{prefix}.credentialsPath', 'Credentials file path',  'string'),
-                (f'{prefix}.languageCode',    'Language code (e.g. en-US)', 'string'),
-                (f'{prefix}.voice',           'Voice name',            'string'),
-            ]
+            self._edit_google_cloud_tts_settings(prefix)
+            return
         elif backend_type == 'azure-tts':
-            fields = [
-                (f'{prefix}.credentialsPath', 'Credentials file path', 'string'),
-                (f'{prefix}.voice',           'Voice name',            'string'),
-            ]
+            self._edit_azure_tts_settings(prefix)
+            return
         else:
             console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
             return
 
         self._edit_fields_menu(f'TTS backend ({backend_type})', fields)
+
+    def _edit_local_tts_settings(self, prefix: str):
+        model_path = f'{prefix}.model'
+        local_models = [
+            ('Ryan [Medium] (TTS, US English, ~64MB)', 'vits-piper-en_US-ryan-medium'),
+            ('Ryan [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-ryan-low'),
+            ('Lessac [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-lessac-low'),
+            ('Danny [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-danny-low'),
+            ('Kathleen [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-kathleen-low'),
+            ('Amy [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-amy-low'),
+            ('Alan [Low] (TTS, UK English, ~64MB)', 'vits-piper-en_GB-alan-low'),
+            ('Joe [Medium] (TTS, US English, ~64MB)', 'vits-piper-en_US-joe-medium'),
+            ('LibriTTS [Medium] (TTS, US English, ~78MB)', 'vits-piper-en_US-libritts_r-medium'),
+            ('Arctic [Medium] (TTS, US English, ~77MB)', 'vits-piper-en_US-arctic-medium'),
+        ]
+
+        while True:
+            items = [
+                (f'  model             [{_fmt_current(self._get(model_path, ""))}]', 'model'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='Local TTS settings', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+
+            if answers['item'] == 'model':
+                current_model = self._get(model_path, '')
+                selected = self._prompt_enum(
+                    'local_tts_model',
+                    'Local TTS voice/model',
+                    local_models,
+                    current_model,
+                )
+                if selected is not None:
+                    self._set(model_path, selected)
+
+    def _edit_ibm_watson_tts_settings(self, prefix: str):
+        voice_path = f'{prefix}.voice'
+        creds_path = f'{prefix}.credentialsPath'
+        ibm_voices = [
+            'en-US_AllisonExpressive',
+            'en-US_AllisonV3Voice',
+            'en-US_EllieNatural',
+            'en-US_EmilyV3Voice',
+            'en-US_EmmaExpressive',
+            'en-US_EmmaNatural',
+            'en-US_EthanNatural',
+            'en-US_HenryV3Voice',
+            'en-US_JacksonNatural',
+            'en-US_KevinV3Voice',
+            'en-US_LisaExpressive',
+            'en-US_LisaV3Voice',
+            'en-US_MichaelExpressive',
+            'en-US_MichaelV3Voice',
+            'en-US_OliviaV3Voice',
+            'en-US_VictoriaNatural',
+        ]
+
+        while True:
+            items = [
+                (f'  credentialsPath   [{_fmt_current(self._get(creds_path, ""))}]', 'credentials'),
+                (f'  voice             [{_fmt_current(self._get(voice_path, ""))}]', 'voice'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='IBM Watson TTS settings', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+
+            if answers['item'] == 'credentials':
+                val = self._prompt_string(
+                    'ibm_tts_credentials',
+                    'Credentials file path',
+                    str(self._get(creds_path, '')),
+                )
+                if val is not None:
+                    self._set(creds_path, val)
+
+            elif answers['item'] == 'voice':
+                current_voice = self._get(voice_path, '')
+                voice_choices = [(v, v) for v in ibm_voices]
+                voice_choices.append(('Other voice', '__custom__'))
+
+                selected = self._prompt_enum(
+                    'ibm_tts_voice',
+                    'IBM Watson TTS voice',
+                    voice_choices,
+                    current_voice,
+                )
+                if selected is None:
+                    continue
+                if selected == '__custom__':
+                    custom_voice = self._prompt_string(
+                        'ibm_tts_voice_custom',
+                        'Enter IBM Watson TTS voice ID',
+                        str(current_voice) if current_voice is not None else '',
+                    )
+                    if custom_voice is not None:
+                        self._set(voice_path, custom_voice.strip())
+                else:
+                    self._set(voice_path, selected)
+
+    def _edit_google_cloud_tts_settings(self, prefix: str):
+        voice_path = f'{prefix}.voice'
+        creds_path = f'{prefix}.credentialsPath'
+        lang_path = f'{prefix}.languageCode'
+        google_voices = [
+            'en-US-Neural2-A',
+            'en-US-Neural2-C',
+            'en-US-Neural2-D',
+            'en-US-Neural2-E',
+            'en-US-Neural2-F',
+            'en-US-Neural2-G',
+            'en-US-Neural2-H',
+            'en-US-Neural2-I',
+            'en-US-Neural2-J',
+            'en-US-Studio-O',
+            'en-US-Studio-Q',
+        ]
+
+        while True:
+            items = [
+                (f'  credentialsPath   [{_fmt_current(self._get(creds_path, ""))}]', 'credentials'),
+                (f'  languageCode      [{_fmt_current(self._get(lang_path, "en-US"))}]', 'language'),
+                (f'  voice             [{_fmt_current(self._get(voice_path, ""))}]', 'voice'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='Google Cloud TTS settings', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+
+            if answers['item'] == 'credentials':
+                val = self._prompt_string(
+                    'google_tts_credentials',
+                    'Credentials file path',
+                    str(self._get(creds_path, '')),
+                )
+                if val is not None:
+                    self._set(creds_path, val)
+
+            elif answers['item'] == 'language':
+                val = self._prompt_string(
+                    'google_tts_language',
+                    'Language code (e.g. en-US)',
+                    str(self._get(lang_path, 'en-US')),
+                )
+                if val is not None:
+                    self._set(lang_path, val)
+
+            elif answers['item'] == 'voice':
+                current_voice = self._get(voice_path, '')
+                voice_choices = [(v, v) for v in google_voices]
+                voice_choices.append(('Other voice', '__custom__'))
+
+                selected = self._prompt_enum(
+                    'google_tts_voice',
+                    'Google Cloud TTS voice',
+                    voice_choices,
+                    current_voice,
+                )
+                if selected is None:
+                    continue
+                if selected == '__custom__':
+                    custom_voice = self._prompt_string(
+                        'google_tts_voice_custom',
+                        'Enter Google Cloud TTS voice name',
+                        str(current_voice) if current_voice is not None else '',
+                    )
+                    if custom_voice is not None:
+                        self._set(voice_path, custom_voice.strip())
+                else:
+                    self._set(voice_path, selected)
+
+    def _edit_azure_tts_settings(self, prefix: str):
+        voice_path = f'{prefix}.voice'
+        creds_path = f'{prefix}.credentialsPath'
+        azure_voices = [
+            'en-US-AmberNeural',
+            'en-US-AndrewNeural',
+            'en-US-AriaNeural',
+            'en-US-AshleyNeural',
+            'en-US-AvaNeural',
+            'en-US-BrianNeural',
+            'en-US-DavisNeural',
+            'en-US-EmmaNeural',
+            'en-US-GuyNeural',
+            'en-US-JennyNeural',
+            'en-US-RogerNeural',
+            'en-US-SteffanNeural',
+        ]
+
+        while True:
+            items = [
+                (f'  credentialsPath   [{_fmt_current(self._get(creds_path, ""))}]', 'credentials'),
+                (f'  voice             [{_fmt_current(self._get(voice_path, ""))}]', 'voice'),
+                ('← Back', '__back__'),
+            ]
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List('item', message='Azure TTS settings', choices=items)],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+            if answers is None or answers['item'] == '__back__':
+                break
+
+            if answers['item'] == 'credentials':
+                val = self._prompt_string(
+                    'azure_tts_credentials',
+                    'Credentials file path',
+                    str(self._get(creds_path, '')),
+                )
+                if val is not None:
+                    self._set(creds_path, val)
+
+            elif answers['item'] == 'voice':
+                current_voice = self._get(voice_path, '')
+                voice_choices = [(v, v) for v in azure_voices]
+                voice_choices.append(('Other voice', '__custom__'))
+
+                selected = self._prompt_enum(
+                    'azure_tts_voice',
+                    'Azure TTS voice',
+                    voice_choices,
+                    current_voice,
+                )
+                if selected is None:
+                    continue
+                if selected == '__custom__':
+                    custom_voice = self._prompt_string(
+                        'azure_tts_voice_custom',
+                        'Enter Azure TTS voice name',
+                        str(current_voice) if current_voice is not None else '',
+                    )
+                    if custom_voice is not None:
+                        self._set(voice_path, custom_voice.strip())
+                else:
+                    self._set(voice_path, selected)
 
     def _edit_see(self):
         if not self._get('hardware.camera', False):
