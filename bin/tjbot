@@ -365,7 +365,7 @@ write_mise_toml() {
     local recipe_dir="$1"
     local language="$2"
 
-    if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
+    if [ "$language" = "typescript" ]; then
         cat > "$recipe_dir/mise.toml" << 'EOF'
 [tasks.install]
 run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
@@ -411,16 +411,9 @@ write_recipe_readme() {
     [ "$speak" = "true" ] && hardware_shields+="![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)\n"
     [ "$wave" = "true" ] && hardware_shields+="![Servo](https://img.shields.io/badge/Hardware-Servo-orange)\n"
 
-    if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
-        # Add Node.js shield for both JS and TS
+    if [ "$language" = "typescript" ]; then
         language_shields="[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)\n"
-
-        # Add language-specific shield
-        if [ "$language" = "javascript" ]; then
-            language_shields+=" [![JavaScript](https://img.shields.io/badge/JavaScript-323330?style=flat&logo=javascript)](https://javascript.org/)\n"
-        elif [ "$language" = "typescript" ]; then
-            language_shields+=" [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)"
-        fi
+        language_shields+=" [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)"
     elif [ "$language" = "python" ]; then
         language_shields="[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)\n"
     fi
@@ -522,7 +515,7 @@ write_language_starters() {
     local speak="${10}"
     local wave="${11}"
 
-    if [ "$language" = "javascript" ] || [ "$language" = "typescript" ]; then
+    if [ "$language" = "typescript" ]; then
         # Build hardware config based on capabilities
         local hardware_lines=""
         [ "$listen" = "true" ] && hardware_lines+="        microphone: true,\n"
@@ -534,13 +527,8 @@ write_language_starters() {
         # Remove trailing comma from last line
         hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
 
-        if [ "$language" = "typescript" ]; then
-            local file_ext="ts"
-            local start_script="tsx index.ts"
-        else
-            local file_ext="js"
-            local start_script="node index.js"
-        fi
+        local file_ext="ts"
+        local start_script="tsx index.ts"
 
         cat > "$recipe_dir/index.$file_ext" << EOF
 /**
@@ -574,29 +562,16 @@ EOF
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
         "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "dependencies": {
-        "tjbot": "latest"
     }
-EOF
-
-        if [ "$language" = "typescript" ]; then
-            cat >> "$recipe_dir/package.json" << EOF
-,
-    "devDependencies": {
-        "@eslint/js": "^10.0.1",
-        "eslint": "^10.0.2",
-        "globals": "^17.4.0",
-        "tsx": "^4.21.0",
-        "typescript": "^5.9.3",
-        "typescript-eslint": "^8.56.1"
-    }
-EOF
-        fi
-
-        cat >> "$recipe_dir/package.json" << EOF
 }
 EOF
+
+        echo -e "${BLUE}Installing dependencies...${NC}"
+        (cd "$recipe_dir" && npm install tjbot)
+
+        if [ "$language" = "typescript" ]; then
+            (cd "$recipe_dir" && npm install --save-dev @eslint/js eslint globals tsx typescript typescript-eslint)
+        fi
 
         if [ "$language" = "typescript" ]; then
             cat > "$recipe_dir/tsconfig.json" << 'EOF'
@@ -695,11 +670,8 @@ create_recipe() {
         license="Apache-2.0"
     fi
 
-    read -r -p "Language (python/py, javascript/js, or typescript/ts): " language
+    read -r -p "Language (python/py or typescript/ts): " language
     case "$language" in
-        javascript|js)
-            language="javascript"
-            ;;
         python|py)
             language="python"
             ;;
@@ -707,7 +679,7 @@ create_recipe() {
             language="typescript"
             ;;
         *)
-            echo -e "${RED}Error: Language must be 'python', 'py', 'javascript', 'js', 'typescript', or 'ts'${NC}"
+            echo -e "${RED}Error: Language must be 'python', 'py', 'typescript', or 'ts'${NC}"
             exit 1
             ;;
     esac
