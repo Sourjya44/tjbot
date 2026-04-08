@@ -32,6 +32,9 @@ This recipe demonstrates TJBot's speech capabilities by having it say hello usin
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
 
+> [!IMPORTANT]
+> If you have configured your TJBot to use the local Text-to-Speech (TTS) backend, your TJBot may download a TTS model the first time you run this script. This download may take a little time, please be patient!
+
 ### Run using `tjbot run`
 
 Open a Terminal and run the following command from anywhere on your system:
@@ -53,9 +56,6 @@ $ tjbot run hello_tjbot
 
 ...
 ```
-
-> [!IMPORTANT]
-> The first time you run this script, your TJBot may download a Speech to Text model. This download may take a little time, please be patient!
 
 ### Run manually using `mise`
 

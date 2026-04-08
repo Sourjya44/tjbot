@@ -159,7 +159,7 @@ while (true) {
         continue;
     }
 
-    if (msg.toLowerCase() === 'stop') {
+    if (msg.toLowerCase().startsWith('stop')) {
         console.log('Goodbye!');
         process.exit(0);
     }

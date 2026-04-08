@@ -33,6 +33,9 @@ This recipe demonstrates TJBot's ability to listen to your speech using speech r
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
 
+> [!IMPORTANT]
+> If you have configured your TJBot to use the local Text-to-Speech (TTS) and/or Speech-to-Text (STT) backends, your TJBot may download TTS/STT models the first time you run this script. These downloads may take a little time, please be patient!
+
 ### Run using `tjbot run`
 
 Open a Terminal and run the following command from anywhere on your system:
@@ -54,9 +57,6 @@ $ tjbot run parrot
 
 ...
 ```
-
-> [!IMPORTANT]
-> The first time you run this script, your TJBot may download Text to Speech and Speech to Text models. These downloads may take a little time, please be patient!
 
 ### Run manually using `mise`
 

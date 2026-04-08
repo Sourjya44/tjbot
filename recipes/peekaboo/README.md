@@ -14,6 +14,9 @@ This recipe uses TJBot's camera and a facial detection model to play peekaboo!
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)
 
+> [!CAUTION]
+> We recommend a Raspberry Pi 4+ for local Text-to-Speech (TTS) synthesis. The recipe will work on other Raspberry Pi hardware using a cloud-based TTS backend.
+
 ## How It Works
 
 This recipe implements an interactive peekaboo game using TJBot's camera, LED, servo arm, and speaker. The game starts when TJBot detects a face in its camera view. While waiting, it pulses its LED yellow. Once your face is detected, the game begins!
@@ -30,6 +33,9 @@ After each round, TJBot shines its light orange and invites you to play again.
 ## Run
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
+
+> [!IMPORTANT]
+> If you have configured your TJBot to use the local Text-to-Speech (TTS) backend, your TJBot may download a TTS model the first time you run this script. This download may take a little time, please be patient!
 
 ### Run using `tjbot run`
 
@@ -50,7 +56,7 @@ $ tjbot run peekaboo
 > peekaboo@3.0.0 start
 > tsx index.ts
 
-TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+...
 ```
 
 ### Run manually using `mise`

@@ -73,7 +73,7 @@ while (true) {
 
     console.log(`Heard: "${msg}"`);
 
-    if (msg === 'stop') {
+    if (msg.toLowerCase().startsWith('stop')) {
         console.log('Goodbye!');
         process.exit(0);
     }

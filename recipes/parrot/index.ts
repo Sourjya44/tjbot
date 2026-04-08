@@ -46,7 +46,7 @@ while (true) {
         continue;
     }
 
-    if (utterance.toLowerCase() === 'stop') {
+    if (utterance.toLowerCase().startsWith('stop')) {
         console.log('Goodbye!');
         await tj.speak('Goodbye!');
         break;

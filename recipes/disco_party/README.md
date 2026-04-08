@@ -34,6 +34,9 @@ This recipe demonstrates TJBot's capabilities to recognize speech by having it l
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
 
+> [!IMPORTANT]
+> If you have configured your TJBot to use the local Speech-to-Text (STT) backend, your TJBot may download an STT model the first time you run this script. This download may take a little time, please be patient!
+
 ### Run using `tjbot run`
 
 Open a Terminal and run the following command from anywhere on your system:
@@ -55,9 +58,6 @@ $ tjbot run disco_party
 
 ...
 ```
-
-> [!IMPORTANT]
-> The first time you run this script, your TJBot may download a Text to Speech model. This download may take a little time, please be patient!
 
 ### Run manually using `mise`
 

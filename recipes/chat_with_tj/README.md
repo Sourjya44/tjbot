@@ -107,6 +107,9 @@ Then, TJBot will shine green when listening, orange when processing your speech,
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
 
+> [!IMPORTANT]
+> If you have configured your TJBot to use the local Text-to-Speech (TTS) backend, your TJBot may download a TTS model the first time you run this script. This download may take a little time, please be patient!
+
 ### Run using `tjbot run`
 
 Open a Terminal and run the following command from anywhere on your system:

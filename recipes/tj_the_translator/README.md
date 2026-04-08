@@ -81,6 +81,9 @@ Save the downloaded file to your TJBot, ensure it is named `google-credentials.j
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.
 
+> [!IMPORTANT]
+> If you have configured your TJBot to use the local Text-to-Speech (TTS) and/or Speech-to-Text (STT) backends, your TJBot may download TTS/STT models the first time you run this script. These downloads may take a little time, please be patient!
+
 ### Run using `tjbot run`
 
 Open a Terminal and run the following command from anywhere on your system:
@@ -102,9 +105,6 @@ $ tjbot run tj_the_translator
 
 ...
 ```
-
-> [!IMPORTANT]
-> The first time you run this script, your TJBot may download a Speech to Text model. This download may take a little time, please be patient!
 
 ### Run manually using `mise`
 
