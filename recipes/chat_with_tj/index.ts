@@ -43,7 +43,7 @@ let conversationHistory = '';
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
     hardware: {
-        led: config.hasLED,
+        led: Boolean(config.hasLED ?? false),
         microphone: true,
         speaker: true
     }
