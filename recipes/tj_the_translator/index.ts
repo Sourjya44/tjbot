@@ -66,7 +66,7 @@ function resolveLanguageCode(language: string): string {
         return mapped;
     }
 
-    throw new Error(`Unsupported language \"${language}\". Please use a supported language name like \"es\" or \"japanese\".`);
+    throw new Error(`Unsupported language "${language}". Please use a supported language name like "es" or "japanese".`);
 }
 
 function findGoogleCredentialsPath(): string | undefined {
@@ -152,7 +152,7 @@ while (true) {
     console.log('👂 Listening...');
     await tj.shine('orange');
 
-    let msg = await tj.listen();
+    const msg = await tj.listen();
 
     if (msg === undefined || msg === '') {
         console.log('No speech detected, trying again...');

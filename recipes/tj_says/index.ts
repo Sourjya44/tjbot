@@ -21,7 +21,7 @@ const config = TJBot.getRecipeConfig();
 
 // get the list of actions that TJBot will ask you to do
 const actions = config.actions;
-const tjDidntSayLikelihood = Number(config.tjDidntSayLikelihood) ?? 0.33; // default to 33% of the time TJBot doesn't say "TJ Says"
+const tjDidntSayLikelihood = Number(config.tjDidntSayLikelihood ?? 0.33); // default to 33% of the time TJBot doesn't say "TJ Says"
 
 if (!actions || !Array.isArray(actions) || actions.length === 0) {
     throw new Error('No actions defined. Please define some actions in recipe.toml.');
