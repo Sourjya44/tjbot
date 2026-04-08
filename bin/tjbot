@@ -529,6 +529,8 @@ write_language_starters() {
 
         local file_ext="ts"
         local start_script="tsx index.ts"
+        local recipe_slug
+        recipe_slug="$(basename "$recipe_dir")"
 
         cat > "$recipe_dir/index.$file_ext" << EOF
 /**
@@ -550,7 +552,7 @@ EOF
 
         cat > "$recipe_dir/package.json" << EOF
 {
-    "name": "$recipe_name",
+    "name": "$recipe_slug",
     "version": "1.0.0",
     "description": "$description",
     "license": "$license",
@@ -581,6 +583,7 @@ EOF
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
+    "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
