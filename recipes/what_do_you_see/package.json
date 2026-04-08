@@ -1,0 +1,27 @@
+{
+  "name": "what_do_you_see",
+  "version": "3.0.0",
+  "description": "TJ, TJ, what do you see?",
+  "license": "Apache-2.0",
+  "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "tjbot": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  }
+}
