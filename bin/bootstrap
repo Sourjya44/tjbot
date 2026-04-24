@@ -23,7 +23,21 @@
 command_exists() {
     local user="$1"
     local cmd="$2"
-    sudo -u "$user" sh -lc "command -v $cmd" >/dev/null 2>&1
+    sudo -H -u "$user" sh -lc "command -v $cmd" >/dev/null 2>&1
+}
+
+# Run a command as target user, ensuring uv is available in that shell.
+run_with_uv() {
+    local user="$1"
+    shift
+    sudo -H -u "$user" sh -lc '
+        if ! command -v uv >/dev/null 2>&1 && [ -f "$HOME/.local/bin/env" ]; then
+            . "$HOME/.local/bin/env" >/dev/null 2>&1
+        fi
+        UV_CMD=$(command -v uv 2>/dev/null || true)
+        [ -n "$UV_CMD" ] || exit 127
+        "$@"
+    ' sh "$@"
 }
 
 # ============================================================================
@@ -138,7 +152,7 @@ apt-get install -y "${PACKAGES[@]}"
 # ============================================================================
 TARGET_USER=${SUDO_USER:-$USER}
 TARGET_HOME=$(eval echo "~$TARGET_USER")
-TJBOT_DIR="$TARGET_HOME/.tjbot"
+TJBOT_DIR="$TARGET_HOME/.tjbot/tjbot"
 
 # ============================================================================
 # Install mise
@@ -162,10 +176,15 @@ echo "Installing uv..."
 
 if ! command_exists "$TARGET_USER" "uv"; then
     echo "Installing uv for user $TARGET_USER..."
-    sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
-    echo "✓ uv installed successfully"
+    sudo -H -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
+fi
+
+# Best-effort status check for uv availability in target user's shell.
+if run_with_uv "$TARGET_USER" uv --version >/dev/null 2>&1; then
+    echo "✓ uv is available"
 else
-    echo "✓ uv is already installed for $TARGET_USER"
+    echo "🛑 Failed to locate uv command for $TARGET_USER, please check your uv installation"
+    exit 1
 fi
 
 # ============================================================================
@@ -275,13 +294,9 @@ fi
 echo ""
 echo "Configuring TJBot hardware & software settings..."
 
-if command_exists "$TARGET_USER" "uv"; then
-    cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
-    sudo -u "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for TJBot configuration, please check your tjbot installation and uv setup" && exit 1)
-    sudo -u "$TARGET_USER" uv run config init || (echo "🛑 Failed to run TJBot configuration, please check your tjbot installation and uv setup" && exit 1)
-else
-    echo "🛑 Failed to locate uv command, please check your uv installation"
-fi
+cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
+run_with_uv "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for tjbot config tool, please check your tjbot installation and uv setup" && exit 1)
+run_with_uv "$TARGET_USER" uv run config init || (echo "🛑 Failed to create default tjbot config, please check your tjbot installation and uv setup" && exit 1)
 
 # ============================================================================
 # Installation complete!
