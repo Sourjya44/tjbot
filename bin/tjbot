@@ -331,14 +331,21 @@ list_recipes() {
     for recipe_dir in "$TJBOT_ROOT/recipes"/*; do
         if [ -d "$recipe_dir" ]; then
             recipe_name=$(basename "$recipe_dir")
+            recipe_type=""
 
-            if [ -f "$recipe_dir/recipe.toml" ] && [ -f "$recipe_dir/mise.toml" ]; then
-                recipe_type="${GREEN}[Standard]${NC}"
-            else
-                recipe_type="${RED}[Invalid]${NC}"
+            if grep -Eq '^[[:space:]]*python[[:space:]]*=' "$recipe_dir/mise.toml" 2>/dev/null || \
+               grep -Eq '^[[:space:]]*run[[:space:]]*=[[:space:]]*".*uv run' "$recipe_dir/mise.toml" 2>/dev/null; then
+                recipe_type="${GREEN}[Python]${NC}"
+            elif grep -Eq '^[[:space:]]*run[[:space:]]*=[[:space:]]*".*(npm|tsx|ts-node|tsc|node)[[:space:]]' "$recipe_dir/mise.toml" 2>/dev/null || \
+                 grep -Eq '^[[:space:]]*node[[:space:]]*=' "$recipe_dir/mise.toml" 2>/dev/null; then
+                recipe_type="${BLUE}[TypeScript]${NC}"
             fi
 
-            echo -e "  - $recipe_name $recipe_type"
+            if [ -n "$recipe_type" ]; then
+                echo -e "  - $recipe_name $recipe_type"
+            else
+                echo -e "  - $recipe_name"
+            fi
         fi
     done
     echo ""
