@@ -136,7 +136,6 @@ echo ""
 
 PACKAGES=(
     libgpiod-dev
-    liblgpiod-dev
     rpicam-apps-lite
     tidy
 )
