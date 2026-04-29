@@ -136,7 +136,7 @@ language = 'pt-BR' # 🇧🇷
 
 ### Customization 2: Translate from a language other than English
 
-You can make TJBot translate from a language other than English by changing the language code on this line:
+You can make TJBot translate from a language other than English by changing the language code in `index.ts`:
 
 ```ts
 const sourceLanguageCode = 'en';

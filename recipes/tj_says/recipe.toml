@@ -1,3 +1,5 @@
+# Recipe-specific configuration
+
 # Customization 1: Add a new action
 actions = [
     "touch your toes",
