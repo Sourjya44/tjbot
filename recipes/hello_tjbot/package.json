@@ -13,7 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "tjbot": "^3.0.0"
+    "tjbot": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
