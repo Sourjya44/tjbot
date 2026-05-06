@@ -8,7 +8,10 @@ credential formats, and hardware conflicts.
 import re
 from typing import Dict, List, Tuple, Optional, Any
 
+from jsonschema import Draft7Validator
+
 from config.device_detection import get_system_info
+from config.schema_loader import TJBotConfigSchema, load_config_schema
 
 
 class ValidationResult:
@@ -48,6 +51,34 @@ class ValidationResult:
         if self.suggestions:
             parts.append("Suggestions: " + "; ".join(self.suggestions))
         return " | ".join(parts) if parts else "Valid"
+
+
+def _append_unique(target: List[str], values: List[str]) -> None:
+    for value in values:
+        if value not in target:
+            target.append(value)
+
+
+def _format_jsonschema_error_path(error) -> str:
+    path = '.'.join(str(part) for part in error.absolute_path)
+    return path if path else '<root>'
+
+
+def validate_schema_config(
+    config: Dict[str, Any],
+    schema: Optional[TJBotConfigSchema] = None,
+) -> ValidationResult:
+    """Validate config structure and types against the external JSON Schema."""
+    result = ValidationResult()
+
+    active_schema = schema or load_config_schema(required=True)
+    validator = Draft7Validator(active_schema.raw_schema)
+    errors = sorted(validator.iter_errors(config), key=lambda item: list(item.absolute_path))
+
+    for error in errors:
+        result.add_error(f'{_format_jsonschema_error_path(error)}: {error.message}')
+
+    return result
 
 
 class ConfigValidators:
@@ -470,7 +501,10 @@ class ConfigValidators:
         return result
 
 
-def validate_config(config: Dict[str, Any]) -> ValidationResult:
+def validate_config(
+    config: Dict[str, Any],
+    schema: Optional[TJBotConfigSchema] = None,
+) -> ValidationResult:
     """
     Validate entire configuration dictionary.
 
@@ -483,6 +517,9 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
     result = ValidationResult()
     validators = ConfigValidators()
 
+    schema_result = validate_schema_config(config, schema=schema)
+    _append_unique(result.errors, schema_result.errors)
+
     # Get system info to determine RPi model
     system_info = get_system_info()
     rpi_model = system_info.get('raspberry_pi', {}).get('model', '4')
@@ -491,31 +528,31 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
     log_level = config.get('log', {}).get('level')
     if log_level:
         level_result = validators.validate_log_level(log_level)
-        result.errors.extend(level_result.errors)
-        result.warnings.extend(level_result.warnings)
+        _append_unique(result.errors, level_result.errors)
+        _append_unique(result.warnings, level_result.warnings)
 
     # Validate GPIO conflicts
     gpio_result = validators.validate_gpio_conflicts(config, rpi_model)
-    result.errors.extend(gpio_result.errors)
-    result.warnings.extend(gpio_result.warnings)
+    _append_unique(result.errors, gpio_result.errors)
+    _append_unique(result.warnings, gpio_result.warnings)
 
     # Validate audio devices
     listen_device = config.get('listen', {}).get('device')
     if listen_device:
         device_result = validators.validate_audio_device(listen_device)
-        result.warnings.extend(device_result.warnings)
+        _append_unique(result.warnings, device_result.warnings)
 
     speak_device = config.get('speak', {}).get('device')
     if speak_device:
         device_result = validators.validate_audio_device(speak_device)
-        result.warnings.extend(device_result.warnings)
+        _append_unique(result.warnings, device_result.warnings)
 
     # Validate camera resolution
     camera_res = config.get('see', {}).get('cameraResolution')
     if camera_res and len(camera_res) == 2:
         res_result = validators.validate_resolution(camera_res[0], camera_res[1])
-        result.errors.extend(res_result.errors)
-        result.warnings.extend(res_result.warnings)
+        _append_unique(result.errors, res_result.errors)
+        _append_unique(result.warnings, res_result.warnings)
 
     # Validate confidence thresholds
     vision_local = config.get('see', {}).get('backend', {}).get('local', {})
@@ -524,8 +561,8 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
         threshold = vision_local.get(threshold_key)
         if threshold is not None:
             conf_result = validators.validate_confidence(threshold)
-            result.errors.extend(conf_result.errors)
-            result.warnings.extend(conf_result.warnings)
+            _append_unique(result.errors, conf_result.errors)
+            _append_unique(result.warnings, conf_result.warnings)
 
     # Update valid flag
     result.valid = len(result.errors) == 0

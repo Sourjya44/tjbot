@@ -11,6 +11,7 @@ from pathlib import Path
 from config import __version__
 from config.config_loader import ConfigLoader
 from config.config_writer import ConfigWriter
+from config.schema_loader import ConfigSchemaError, load_config_schema
 from config.validators import validate_config
 from rich.console import Console
 
@@ -64,7 +65,13 @@ def cmd_edit(args):
             '[red]Cannot open editor – no configuration file available.[/red]\n')
         return 1
 
-    return run_editor(_CONFIG_PATH)
+    try:
+        schema = load_config_schema(required=True)
+    except ConfigSchemaError as exc:
+        console.print(f'[red]Cannot open editor: {exc}[/red]\n')
+        return 1
+
+    return run_editor(_CONFIG_PATH, schema=schema)
 
 
 def cmd_show(args):
@@ -153,8 +160,11 @@ def cmd_validate(args):
         return 1
 
     try:
+        schema = load_config_schema(required=True)
+        console.print(f"[dim]Schema loaded from: {schema.path}[/dim]\n")
+
         config = loader.load_config()
-        result = validate_config(config)
+        result = validate_config(config, schema=schema)
 
         if result.valid:
             console.print("[green]✓ Configuration is valid[/green]\n")

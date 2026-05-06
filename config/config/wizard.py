@@ -8,7 +8,6 @@ is preserved on save.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -18,6 +17,8 @@ import tomlkit
 from rich.console import Console
 
 from config.device_detection import DeviceDetection, get_system_info
+from config.model_registry import ModelRegistry
+from config.schema_loader import ConfigSchemaError, TJBotConfigSchema, load_config_schema
 
 console = Console()
 
@@ -82,8 +83,14 @@ def _fmt_current(value) -> str:
 class TJBotConfigEditor:
     """Interactive hierarchical editor that operates on a tomlkit document."""
 
-    def __init__(self, doc):
+    LEGACY_SECTION_ORDER = ['log', 'hardware', 'listen', 'see', 'shine', 'speak', 'wave']
+
+    def __init__(self, doc, schema: Optional[TJBotConfigSchema] = None):
+        if schema is None:
+            raise ConfigSchemaError('TJBot config schema is required to run the editor.')
         self.doc = doc
+        self.schema = schema
+        self.model_registry = ModelRegistry()
         self.system_info = get_system_info()
         self._modified = False
 
@@ -95,6 +102,8 @@ class TJBotConfigEditor:
         Returns True if the user chose to save.
         """
         console.print('\n[bold cyan]TJBot Configuration Editor[/bold cyan]')
+        if self.schema is not None:
+            console.print(f'[dim]Schema loaded from {self.schema.path}[/dim]')
         console.print('[dim]Arrow keys to navigate · Enter to select · Ctrl-C to cancel[/dim]\n')
 
         while True:
@@ -110,19 +119,26 @@ class TJBotConfigEditor:
 
     # ── Navigation ──────────────────────────────────────────────────────────
 
+    def _available_sections(self) -> List[Tuple[str, str]]:
+        sections = self.schema.get_sections(self.LEGACY_SECTION_ORDER)
+        description_by_key = {section.key: section.description for section in sections}
+        choices: List[Tuple[str, str]] = []
+
+        for key in self.LEGACY_SECTION_ORDER:
+            if key not in description_by_key:
+                continue
+            description = description_by_key.get(key, key)
+            choices.append((f'  {key:<8} - {description}', key))
+
+        return choices
+
     def _pick_section(self) -> Optional[str]:
         status = '🟡' if self._modified else '🟢'
-        choices: List[Tuple[str, str]] = [
-            ('  log      - Logging', 'log'),
-            ('  hardware - Hardware components', 'hardware'),
-            ('  listen   - Microphone + Speech-to-Text', 'listen'),
-            ('  see      - Camera + Vision', 'see'),
-            ('  shine    - LED', 'shine'),
-            ('  speak    - Speaker + Text-to-Speech', 'speak'),
-            ('  wave     - Servo', 'wave'),
+        choices = self._available_sections()
+        choices.extend([
             (f'  💾 Save and exit {status}', 'save'),
             ('  ✖ Exit without saving', 'exit'),
-        ]
+        ])
         try:
             answers = inquirer.prompt(
                 [inquirer.List('section', message='Select section to configure', choices=choices)],
@@ -135,18 +151,7 @@ class TJBotConfigEditor:
         return answers['section']
 
     def _edit_section(self, key: str):
-        dispatch = {
-            'log': self._edit_log,
-            'hardware': self._edit_hardware,
-            'listen': self._edit_listen,
-            'see': self._edit_see,
-            'shine': self._edit_shine,
-            'speak': self._edit_speak,
-            'wave': self._edit_wave,
-        }
-        fn = dispatch.get(key)
-        if fn:
-            fn()
+        self._edit_schema_section(key)
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
@@ -157,6 +162,19 @@ class TJBotConfigEditor:
         _set_value(self.doc, path, value)
         self._modified = True
         console.print(f'[green]  ✓ {path} = {_fmt_current(value)}[/green]')
+        self._apply_path_side_effects(path, value)
+
+    def _apply_path_side_effects(self, path: str, value) -> None:
+        if path in ('shine.hasNeopixelLED', 'shine.hasCommonAnodeLED'):
+            self._sync_led_flags()
+            return
+
+        if path == 'hardware.led' and value is False:
+            _set_value(self.doc, 'shine.hasNeopixelLED', False)
+            _set_value(self.doc, 'shine.hasCommonAnodeLED', False)
+            console.print('[yellow]  Disabled LED hardware and cleared shine LED selections.[/yellow]')
+        elif path == 'hardware.led' and value is True:
+            console.print('[yellow]  Configure LED type and pins in the shine section.[/yellow]')
 
     def _sync_led_flags(self) -> None:
         """Keep aggregate hardware LED flag in sync with shine LED flags."""
@@ -209,29 +227,6 @@ class TJBotConfigEditor:
             return None
         return answers[name]
 
-    def _prompt_int(self, name: str, message: str, current) -> Optional[int]:
-        def _validate(_, x):
-            try:
-                int(x)
-                return True
-            except ValueError:
-                raise inquirer.errors.ValidationError('', reason='Enter a whole number.')
-        try:
-            answers = inquirer.prompt(
-                [inquirer.Text(
-                    name,
-                    message=f'{message}  [current: {_fmt_current(current)}]',
-                    default=str(current) if current is not None else '',
-                    validate=_validate,
-                )],
-                raise_keyboard_interrupt=True,
-            )
-        except KeyboardInterrupt:
-            return None
-        if answers is None:
-            return None
-        return int(answers[name])
-
     def _prompt_float01(self, name: str, message: str, current) -> Optional[float]:
         def _validate(_, x):
             try:
@@ -257,6 +252,224 @@ class TJBotConfigEditor:
         if answers is None:
             return None
         return float(answers[name])
+
+    def _prompt_number(self, name: str, message: str, current,
+                       *, minimum=None, maximum=None, integral: bool = False):
+        def _validate(_, x):
+            try:
+                value = int(x) if integral else float(x)
+            except ValueError as exc:
+                reason = 'Enter a whole number.' if integral else 'Enter a number.'
+                raise inquirer.errors.ValidationError('', reason=reason) from exc
+
+            if minimum is not None and value < minimum:
+                raise inquirer.errors.ValidationError('', reason=f'Value must be >= {minimum}.')
+            if maximum is not None and value > maximum:
+                raise inquirer.errors.ValidationError('', reason=f'Value must be <= {maximum}.')
+            return True
+
+        try:
+            answers = inquirer.prompt(
+                [inquirer.Text(
+                    name,
+                    message=f'{message}  [current: {_fmt_current(current)}]',
+                    default=str(current) if current is not None else '',
+                    validate=_validate,
+                )],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+        return int(answers[name]) if integral else float(answers[name])
+
+    def _prompt_array_pair(self, name: str, message: str, current) -> Optional[List[int]]:
+        current_text = ''
+        if isinstance(current, list) and len(current) == 2:
+            current_text = f'{current[0]},{current[1]}'
+
+        def _validate(_, x):
+            parts = [part.strip() for part in x.split(',')]
+            if len(parts) != 2:
+                raise inquirer.errors.ValidationError('', reason='Enter two comma-separated integers.')
+            try:
+                int(parts[0])
+                int(parts[1])
+            except ValueError as exc:
+                raise inquirer.errors.ValidationError('', reason='Enter two whole numbers.') from exc
+            return True
+
+        try:
+            answers = inquirer.prompt(
+                [inquirer.Text(
+                    name,
+                    message=f'{message}  [current: {_fmt_current(current)}]',
+                    default=current_text,
+                    validate=_validate,
+                )],
+                raise_keyboard_interrupt=True,
+            )
+        except KeyboardInterrupt:
+            return None
+        if answers is None:
+            return None
+
+        parts = [int(part.strip()) for part in answers[name].split(',')]
+        return parts
+
+    def _prompt_model_choice(self, path: str, label: str, current) -> Optional[str]:
+        models = None
+
+        if path == 'listen.backend.local.model':
+            models = self.model_registry.get_stt_models()
+        elif path == 'listen.backend.local.vad.model':
+            models = self.model_registry.get_vad_models()
+        elif path == 'speak.backend.local.model':
+            models = self.model_registry.get_tts_models()
+        elif path == 'see.backend.local.objectDetectionModel':
+            models = self.model_registry.get_vision_models('object-detection')
+        elif path == 'see.backend.local.imageClassificationModel':
+            models = self.model_registry.get_vision_models('classification')
+        elif path == 'see.backend.local.faceDetectionModel':
+            models = self.model_registry.get_vision_models('face-detection')
+
+        if not models:
+            return None
+
+        choices = [
+            (self.model_registry.format_model_option(model), model['key'])
+            for model in models
+        ]
+        return self._prompt_enum(path.replace('.', '_'), label, choices, current)
+
+    def _schema_field_message(self, key: str, schema_node: Dict[str, Any]) -> str:
+        description = schema_node.get('description')
+        if description:
+            return f'{key} - {description}'
+        return key
+
+    def _schema_property_value(self, path: str, schema_node: Dict[str, Any]) -> Any:
+        return self._get(path, schema_node.get('default'))
+
+    def _schema_field_summary(self, path: str, schema_node: Dict[str, Any]) -> str:
+        if self._schema_is_object(schema_node):
+            object_type = self._get(f'{path}.type')
+            if object_type is not None:
+                return str(object_type)
+            return 'open'
+        return _fmt_current(self._schema_property_value(path, schema_node))
+
+    def _schema_is_object(self, schema_node: Dict[str, Any]) -> bool:
+        return schema_node.get('type') == 'object' or 'properties' in schema_node
+
+    def _schema_number_is_integral(self, schema_node: Dict[str, Any], current) -> bool:
+        if schema_node.get('type') == 'integer':
+            return True
+        if schema_node.get('type') != 'number':
+            return False
+
+        candidates = [current, schema_node.get('default'), schema_node.get('minimum'), schema_node.get('maximum')]
+        filtered = [value for value in candidates if value is not None]
+        return bool(filtered) and all(isinstance(value, int) and not isinstance(value, bool) for value in filtered)
+
+    def _edit_schema_section(self, key: str) -> None:
+        section = self.schema.get_section(key)
+        console.print(f'\n[bold]{key}[/bold] - {section.description}\n')
+        self._edit_schema_object(key, key, section.schema)
+
+    def _edit_schema_object(self, title: str, path_prefix: str, object_schema: Dict[str, Any]) -> None:
+        properties = self.schema.get_object_properties(object_schema)
+        if not properties:
+            console.print('[yellow]No editable fields in this schema section.[/yellow]\n')
+            return
+
+        while True:
+            label_width = max(len(prop.key) for prop in properties)
+            items = [
+                (
+                    f'  {prop.key.ljust(label_width)}   [{self._schema_field_summary(f"{path_prefix}.{prop.key}", prop.schema)}]',
+                    prop.key,
+                )
+                for prop in properties
+            ]
+            items.append(('← Back', '__back__'))
+
+            try:
+                answers = inquirer.prompt(
+                    [inquirer.List(
+                        'field',
+                        message=f'{title} - select field to edit',
+                        choices=items,
+                    )],
+                    raise_keyboard_interrupt=True,
+                )
+            except KeyboardInterrupt:
+                break
+
+            if answers is None or answers['field'] == '__back__':
+                break
+
+            prop = next((item for item in properties if item.key == answers['field']), None)
+            if prop is None:
+                continue
+
+            full_path = f'{path_prefix}.{prop.key}'
+            if self._schema_is_object(prop.schema):
+                nested_title = f'{title}.{prop.key}'
+                console.print(f'\n[bold]{nested_title}[/bold] - {prop.description}\n')
+                self._edit_schema_object(nested_title, full_path, prop.schema)
+                continue
+
+            self._edit_schema_field(full_path, prop.key, prop.schema)
+
+    def _edit_schema_field(self, path: str, key: str, schema_node: Dict[str, Any]) -> None:
+        current = self._schema_property_value(path, schema_node)
+        message = self._schema_field_message(key, schema_node)
+
+        if path == 'listen.device':
+            console.print('[dim]Detecting audio input devices...[/dim]')
+            value = self._pick_audio_device('input')
+        elif path == 'speak.device':
+            console.print('[dim]Detecting audio output devices...[/dim]')
+            value = self._pick_audio_device('output')
+        else:
+            value = self._prompt_model_choice(path, message, current)
+
+        if value is not None:
+            self._set(path, value)
+            return
+
+        if 'enum' in schema_node:
+            choices = [(str(option), option) for option in schema_node['enum']]
+            value = self._prompt_enum(path.replace('.', '_'), message, choices, current)
+        elif schema_node.get('type') == 'boolean':
+            value = self._prompt_bool(path.replace('.', '_'), message, current)
+        elif schema_node.get('type') == 'string':
+            value = self._prompt_string(path.replace('.', '_'), message, str(current) if current is not None else '')
+        elif schema_node.get('type') in ('integer', 'number'):
+            integral = self._schema_number_is_integral(schema_node, current)
+            minimum = schema_node.get('minimum')
+            maximum = schema_node.get('maximum')
+            if not integral and minimum == 0 and maximum == 1:
+                value = self._prompt_float01(path.replace('.', '_'), message, current)
+            else:
+                value = self._prompt_number(
+                    path.replace('.', '_'),
+                    message,
+                    current,
+                    minimum=minimum,
+                    maximum=maximum,
+                    integral=integral,
+                )
+        elif schema_node.get('type') == 'array' and schema_node.get('minItems') == 2 and schema_node.get('maxItems') == 2:
+            value = self._prompt_array_pair(path.replace('.', '_'), message, current)
+        else:
+            console.print(f'[yellow]Unsupported schema field type for {path}.[/yellow]')
+            return
+
+        if value is not None:
+            self._set(path, value)
 
     # ── Audio device picker ──────────────────────────────────────────────────
 
@@ -314,948 +527,6 @@ class TJBotConfigEditor:
 
         return answers['dev']
 
-    # ── Generic fields menu ──────────────────────────────────────────────────
-
-    def _edit_fields_menu(self, title: str,
-                          fields: List[Tuple[str, str, str]]) -> None:
-        """
-        Present a looping menu for a list of (path, label, type_str) field entries.
-        type_str: 'string' | 'integer' | 'float01' | 'boolean' | 'enum_servo'
-        """
-        while True:
-            label_width = max(len(label) for _, label, _ in fields)
-            items = [
-                (f'  {label.ljust(label_width)}   [{_fmt_current(self._get(path))}]', path)
-                for path, label, _ in fields
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List(
-                        'field',
-                        message=f'{title} - select field to edit',
-                        choices=items,
-                    )],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['field'] == '__back__':
-                break
-            sel = answers['field']
-            entry = next((e for e in fields if e[0] == sel), None)
-            if entry is None:
-                break
-            path, label, type_str = entry
-            current = self._get(path)
-
-            if type_str == 'boolean':
-                val = self._prompt_bool(path.replace('.', '_'), label, current)
-                if val is not None:
-                    self._set(path, val)
-            elif type_str == 'string':
-                val = self._prompt_string(path.replace('.', '_'), label,
-                                          str(current) if current is not None else '')
-                if val is not None:
-                    self._set(path, val)
-            elif type_str == 'integer':
-                val = self._prompt_int(path.replace('.', '_'), label, current)
-                if val is not None:
-                    self._set(path, val)
-            elif type_str == 'float01':
-                val = self._prompt_float01(path.replace('.', '_'), label, current)
-                if val is not None:
-                    self._set(path, val)
-            elif type_str == 'enum_servo':
-                val = self._prompt_enum('servo_pin', label, [
-                    ('GPIO 18 - recommended PWM pin', 18),
-                    ('GPIO 12 - PWM, no audio conflict', 12),
-                    ('GPIO 13 - PWM', 13),
-                    ('GPIO 19 - PWM', 19),
-                ], current)
-                if val is not None:
-                    self._set(path, val)
-
-    # ── Section editors ──────────────────────────────────────────────────────
-
-    def _edit_log(self):
-        console.print('\n[bold]log - Logging[/bold]\n')
-        current = self._get('log.level', 'info')
-        val = self._prompt_enum('level', 'Log level', [
-            ('error   - errors only (quiet)', 'error'),
-            ('warning - reduced verbosity', 'warning'),
-            ('info    - normal operation (recommended)', 'info'),
-            ('verbose - detailed operation logs', 'verbose'),
-            ('debug   - developer logs (noisy)', 'debug'),
-            ('silly   - everything (very noisy)', 'silly'),
-        ], current)
-        if val is not None:
-            self._set('log.level', val)
-
-    def _edit_hardware(self):
-        console.print('\n[bold]hardware - Hardware components[/bold]\n')
-        console.print('[dim]Select a device to toggle it on/off.[/dim]\n')
-        # Keep aggregate LED hardware flag aligned with shine LED selections.
-        self._sync_led_flags()
-        fields = [
-            ('hardware.camera',           'Camera module'),
-            ('shine.hasNeopixelLED',      'NeoPixel LED'),
-            ('shine.hasCommonAnodeLED',   'Common Anode RGB LED'),
-            ('hardware.microphone',       'Microphone (audio input)'),
-            ('hardware.servo',            'Servo motor (arm)'),
-            ('hardware.speaker',          'Speaker (audio output)'),
-        ]
-        while True:
-            label_width = max(len(label) for _, label in fields)
-            choices = [
-                (
-                    f'  {label.ljust(label_width)}   '
-                    f'[{_fmt_bool(self._get(path, False)):5}]',
-                    path,
-                )
-                for path, label in fields
-            ]
-            choices.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('field', message='Toggle hardware device', choices=choices)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['field'] == '__back__':
-                break
-            path = answers['field']
-            self._set(path, not bool(self._get(path, False)))
-            if path in ('shine.hasNeopixelLED', 'shine.hasCommonAnodeLED'):
-                self._sync_led_flags()
-
-    def _edit_listen(self):
-        if not self._get('hardware.microphone', False):
-            console.print(
-                '[yellow]  ⚠  hardware.microphone is disabled. '
-                'Enable it in the hardware section or listen will be '
-                'ignored at runtime.[/yellow]\n')
-        while True:
-            console.print('\n[bold]listen - Microphone + Speech-to-Text[/bold]\n')
-            rows = [
-                ('device', _fmt_current(self._get('listen.device', '')), 'device'),
-                ('microphoneRate', f"{_fmt_current(self._get('listen.microphoneRate', 44100))} Hz", 'rate'),
-                ('microphoneChannels', _fmt_current(self._get('listen.microphoneChannels', 2)), 'channels'),
-                ('backend.type', _fmt_current(self._get('listen.backend.type', 'local')), 'backend_type'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('  backend settings   (expand for current backend type)', 'backend_settings'))
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='listen configuration', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-            item = answers['item']
-
-            if item == 'device':
-                console.print('[dim]Detecting audio input devices...[/dim]')
-                val = self._pick_audio_device('input')
-                if val is not None:
-                    self._set('listen.device', val)
-
-            elif item == 'rate':
-                val = self._prompt_enum('rate', 'Microphone sample rate', [
-                    ('16000 Hz - recommended for offline speech models', 16000),
-                    ('44100 Hz - standard quality', 44100),
-                    ('48000 Hz - high quality', 48000),
-                    (' 8000 Hz - low bandwidth', 8000),
-                ], self._get('listen.microphoneRate', 44100))
-                if val is not None:
-                    self._set('listen.microphoneRate', val)
-
-            elif item == 'channels':
-                val = self._prompt_enum('channels', 'Microphone channels', [
-                    ('1 - mono (typical for microphones)', 1),
-                    ('2 - stereo', 2),
-                ], self._get('listen.microphoneChannels', 2))
-                if val is not None:
-                    self._set('listen.microphoneChannels', val)
-
-            elif item == 'backend_type':
-                val = self._prompt_enum('type', 'STT backend', [
-                    ('none             - disable speech-to-text', 'none'),
-                    ('local            - on-device Sherpa-ONNX (offline)', 'local'),
-                    ('ibm-watson-stt   - IBM Cloud STT (streaming)', 'ibm-watson-stt'),
-                    ('google-cloud-stt - Google Cloud STT (streaming)', 'google-cloud-stt'),
-                    ('azure-stt        - Microsoft Azure STT', 'azure-stt'),
-                ], self._get('listen.backend.type', 'local'))
-                if val is not None:
-                    self._set('listen.backend.type', val)
-
-            elif item == 'backend_settings':
-                self._edit_stt_backend_settings()
-
-    def _edit_stt_backend_settings(self):
-        backend_type = self._get('listen.backend.type', 'local')
-        console.print(
-            f'\n[bold]STT backend settings[/bold]  [dim](type: {backend_type})[/dim]\n')
-
-        if backend_type == 'none':
-            console.print('[yellow]  No settings for backend type "none".[/yellow]\n')
-            return
-
-        prefix = f'listen.backend.{backend_type}'
-        if backend_type == 'local':
-            fields = [
-                (f'{prefix}.model',       'Model name',     'string'),
-                (f'{prefix}.vad.enabled', 'VAD enabled',    'boolean'),
-                (f'{prefix}.vad.model',   'VAD model name', 'string'),
-            ]
-        elif backend_type == 'ibm-watson-stt':
-            fields = [
-                (f'{prefix}.model',                      'Model name',                      'string'),
-                (f'{prefix}.inactivityTimeout',          'Inactivity timeout (s, -1=off)',  'integer'),
-                (f'{prefix}.backgroundAudioSuppression', 'Background audio suppression',    'float01'),
-                (f'{prefix}.interimResults',             'Interim results',                 'boolean'),
-                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
-            ]
-        elif backend_type == 'google-cloud-stt':
-            self._edit_google_cloud_stt_settings(prefix)
-            return
-        elif backend_type == 'azure-stt':
-            fields = [
-                (f'{prefix}.language',       'Language (e.g. en-US)',  'string'),
-                (f'{prefix}.credentialsPath', 'Credentials file path', 'string'),
-                (f'{prefix}.interimResults',  'Interim results',       'boolean'),
-            ]
-        else:
-            console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
-            return
-
-        self._edit_fields_menu(f'STT backend ({backend_type})', fields)
-
-    def _edit_google_cloud_stt_settings(self, prefix: str):
-        model_path = f'{prefix}.model'
-        region_path = f'{prefix}.region'
-        creds_path = f'{prefix}.credentialsPath'
-        lang_path = f'{prefix}.languageCode'
-        punct_path = f'{prefix}.enableAutomaticPunctuation'
-        profanity_path = f'{prefix}.profanityFilter'
-        interim_path = f'{prefix}.interimResults'
-
-        model_choices = [
-            ('chirp_3 (regions: us, eu)', 'chirp_3'),
-            ('chirp_2 (regions: us-central1, europe-west4, asia-southeast1)', 'chirp_2'),
-        ]
-        region_choices = {
-            'chirp_3': [('us', 'us'), ('eu', 'eu')],
-            'chirp_2': [
-                ('us-central1', 'us-central1'),
-                ('europe-west4', 'europe-west4'),
-                ('asia-southeast1', 'asia-southeast1'),
-            ],
-        }
-
-        while True:
-            rows = [
-                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
-                ('model', _fmt_current(self._get(model_path, 'chirp_3')), 'model'),
-                ('region', _fmt_current(self._get(region_path, 'us')), 'region'),
-                ('languageCode', _fmt_current(self._get(lang_path, 'en-US')), 'language'),
-                ('enableAutomaticPunctuation', f"{_fmt_bool(self._get(punct_path, True)):5}", 'punct'),
-                ('profanityFilter', f"{_fmt_bool(self._get(profanity_path, True)):5}", 'profanity'),
-                ('interimResults', f"{_fmt_bool(self._get(interim_path, False)):5}", 'interim'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='Google Cloud STT settings', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-
-            item = answers['item']
-            if item == 'credentials':
-                val = self._prompt_string(
-                    'google_stt_credentials',
-                    'Credentials file path',
-                    str(self._get(creds_path, '')),
-                )
-                if val is not None:
-                    self._set(creds_path, val)
-
-            elif item == 'model':
-                current_model = self._get(model_path, 'chirp_3')
-                selected_model = self._prompt_enum(
-                    'google_stt_model',
-                    'Google Cloud STT model',
-                    model_choices,
-                    current_model,
-                )
-                if selected_model is not None:
-                    self._set(model_path, selected_model)
-                    allowed_regions = [v for _, v in region_choices[selected_model]]
-                    current_region = self._get(region_path, '')
-                    if current_region not in allowed_regions:
-                        self._set(region_path, allowed_regions[0])
-
-            elif item == 'region':
-                selected_model = self._get(model_path, 'chirp_3')
-                if selected_model not in region_choices:
-                    selected_model = 'chirp_3'
-                    self._set(model_path, selected_model)
-                current_region = self._get(region_path, region_choices[selected_model][0][1])
-                selected_region = self._prompt_enum(
-                    'google_stt_region',
-                    f'Google Cloud STT region for {selected_model}',
-                    region_choices[selected_model],
-                    current_region,
-                )
-                if selected_region is not None:
-                    self._set(region_path, selected_region)
-
-            elif item == 'language':
-                val = self._prompt_string(
-                    'google_stt_language',
-                    'Language code (e.g. en-US)',
-                    str(self._get(lang_path, 'en-US')),
-                )
-                if val is not None:
-                    self._set(lang_path, val)
-
-            elif item == 'punct':
-                val = self._prompt_bool(
-                    'google_stt_punctuation',
-                    'Enable automatic punctuation',
-                    self._get(punct_path, True),
-                )
-                if val is not None:
-                    self._set(punct_path, val)
-
-            elif item == 'profanity':
-                val = self._prompt_bool(
-                    'google_stt_profanity',
-                    'Enable profanity filter',
-                    self._get(profanity_path, True),
-                )
-                if val is not None:
-                    self._set(profanity_path, val)
-
-            elif item == 'interim':
-                val = self._prompt_bool(
-                    'google_stt_interim',
-                    'Enable interim results',
-                    self._get(interim_path, False),
-                )
-                if val is not None:
-                    self._set(interim_path, val)
-
-    def _edit_speak(self):
-        if not self._get('hardware.speaker', False):
-            console.print(
-                '[yellow]  ⚠  hardware.speaker is disabled. '
-                'Enable it in the hardware section or speak will be '
-                'ignored at runtime.[/yellow]\n')
-        while True:
-            console.print('\n[bold]speak - Speaker + Text-to-Speech[/bold]\n')
-            rows = [
-                ('device', _fmt_current(self._get('speak.device', '')), 'device'),
-                ('backend.type', _fmt_current(self._get('speak.backend.type', 'local')), 'backend_type'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('  backend settings (expand for current backend type)', 'backend_settings'))
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='speak configuration', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-            item = answers['item']
-
-            if item == 'device':
-                console.print('[dim]Detecting audio output devices...[/dim]')
-                val = self._pick_audio_device('output')
-                if val is not None:
-                    self._set('speak.device', val)
-
-            elif item == 'backend_type':
-                val = self._prompt_enum('type', 'TTS backend', [
-                    ('none             - disable text-to-speech', 'none'),
-                    ('local            - on-device Sherpa-ONNX (offline)', 'local'),
-                    ('ibm-watson-tts   - IBM Cloud TTS', 'ibm-watson-tts'),
-                    ('google-cloud-tts - Google Cloud TTS', 'google-cloud-tts'),
-                    ('azure-tts        - Microsoft Azure TTS', 'azure-tts'),
-                ], self._get('speak.backend.type', 'local'))
-                if val is not None:
-                    self._set('speak.backend.type', val)
-
-            elif item == 'backend_settings':
-                self._edit_tts_backend_settings()
-
-    def _edit_tts_backend_settings(self):
-        backend_type = self._get('speak.backend.type', 'local')
-        console.print(
-            f'\n[bold]TTS backend settings[/bold]  [dim](type: {backend_type})[/dim]\n')
-
-        if backend_type == 'none':
-            console.print('[yellow]  No settings for backend type "none".[/yellow]\n')
-            return
-
-        prefix = f'speak.backend.{backend_type}'
-        if backend_type == 'local':
-            self._edit_local_tts_settings(prefix)
-            return
-        elif backend_type == 'ibm-watson-tts':
-            self._edit_ibm_watson_tts_settings(prefix)
-            return
-        elif backend_type == 'google-cloud-tts':
-            self._edit_google_cloud_tts_settings(prefix)
-            return
-        elif backend_type == 'azure-tts':
-            self._edit_azure_tts_settings(prefix)
-            return
-        else:
-            console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
-            return
-
-        self._edit_fields_menu(f'TTS backend ({backend_type})', fields)
-
-    def _edit_local_tts_settings(self, prefix: str):
-        model_path = f'{prefix}.model'
-        local_models = [
-            ('Ryan [Medium] (TTS, US English, ~64MB)', 'vits-piper-en_US-ryan-medium'),
-            ('Ryan [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-ryan-low'),
-            ('Lessac [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-lessac-low'),
-            ('Danny [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-danny-low'),
-            ('Kathleen [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-kathleen-low'),
-            ('Amy [Low] (TTS, US English, ~64MB)', 'vits-piper-en_US-amy-low'),
-            ('Alan [Low] (TTS, UK English, ~64MB)', 'vits-piper-en_GB-alan-low'),
-            ('Joe [Medium] (TTS, US English, ~64MB)', 'vits-piper-en_US-joe-medium'),
-            ('LibriTTS [Medium] (TTS, US English, ~78MB)', 'vits-piper-en_US-libritts_r-medium'),
-            ('Arctic [Medium] (TTS, US English, ~77MB)', 'vits-piper-en_US-arctic-medium'),
-        ]
-
-        while True:
-            rows = [('model', _fmt_current(self._get(model_path, '')), 'model')]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='Local TTS settings', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-
-            if answers['item'] == 'model':
-                current_model = self._get(model_path, '')
-                selected = self._prompt_enum(
-                    'local_tts_model',
-                    'Local TTS voice/model',
-                    local_models,
-                    current_model,
-                )
-                if selected is not None:
-                    self._set(model_path, selected)
-
-    def _edit_ibm_watson_tts_settings(self, prefix: str):
-        voice_path = f'{prefix}.voice'
-        creds_path = f'{prefix}.credentialsPath'
-        ibm_voices = [
-            'en-US_AllisonExpressive',
-            'en-US_AllisonV3Voice',
-            'en-US_EllieNatural',
-            'en-US_EmilyV3Voice',
-            'en-US_EmmaExpressive',
-            'en-US_EmmaNatural',
-            'en-US_EthanNatural',
-            'en-US_HenryV3Voice',
-            'en-US_JacksonNatural',
-            'en-US_KevinV3Voice',
-            'en-US_LisaExpressive',
-            'en-US_LisaV3Voice',
-            'en-US_MichaelExpressive',
-            'en-US_MichaelV3Voice',
-            'en-US_OliviaV3Voice',
-            'en-US_VictoriaNatural',
-        ]
-
-        while True:
-            rows = [
-                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
-                ('voice', _fmt_current(self._get(voice_path, '')), 'voice'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='IBM Watson TTS settings', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-
-            if answers['item'] == 'credentials':
-                val = self._prompt_string(
-                    'ibm_tts_credentials',
-                    'Credentials file path',
-                    str(self._get(creds_path, '')),
-                )
-                if val is not None:
-                    self._set(creds_path, val)
-
-            elif answers['item'] == 'voice':
-                current_voice = self._get(voice_path, '')
-                voice_choices = [(v, v) for v in ibm_voices]
-                voice_choices.append(('Other voice', '__custom__'))
-
-                selected = self._prompt_enum(
-                    'ibm_tts_voice',
-                    'IBM Watson TTS voice',
-                    voice_choices,
-                    current_voice,
-                )
-                if selected is None:
-                    continue
-                if selected == '__custom__':
-                    custom_voice = self._prompt_string(
-                        'ibm_tts_voice_custom',
-                        'Enter IBM Watson TTS voice ID',
-                        str(current_voice) if current_voice is not None else '',
-                    )
-                    if custom_voice is not None:
-                        self._set(voice_path, custom_voice.strip())
-                else:
-                    self._set(voice_path, selected)
-
-    def _edit_google_cloud_tts_settings(self, prefix: str):
-        voice_path = f'{prefix}.voice'
-        creds_path = f'{prefix}.credentialsPath'
-        lang_path = f'{prefix}.languageCode'
-        google_voices = [
-            'en-US-Neural2-A',
-            'en-US-Neural2-C',
-            'en-US-Neural2-D',
-            'en-US-Neural2-E',
-            'en-US-Neural2-F',
-            'en-US-Neural2-G',
-            'en-US-Neural2-H',
-            'en-US-Neural2-I',
-            'en-US-Neural2-J',
-            'en-US-Studio-O',
-            'en-US-Studio-Q',
-        ]
-
-        while True:
-            rows = [
-                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
-                ('languageCode', _fmt_current(self._get(lang_path, 'en-US')), 'language'),
-                ('voice', _fmt_current(self._get(voice_path, '')), 'voice'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='Google Cloud TTS settings', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-
-            if answers['item'] == 'credentials':
-                val = self._prompt_string(
-                    'google_tts_credentials',
-                    'Credentials file path',
-                    str(self._get(creds_path, '')),
-                )
-                if val is not None:
-                    self._set(creds_path, val)
-
-            elif answers['item'] == 'language':
-                val = self._prompt_string(
-                    'google_tts_language',
-                    'Language code (e.g. en-US)',
-                    str(self._get(lang_path, 'en-US')),
-                )
-                if val is not None:
-                    self._set(lang_path, val)
-
-            elif answers['item'] == 'voice':
-                current_voice = self._get(voice_path, '')
-                voice_choices = [(v, v) for v in google_voices]
-                voice_choices.append(('Other voice', '__custom__'))
-
-                selected = self._prompt_enum(
-                    'google_tts_voice',
-                    'Google Cloud TTS voice',
-                    voice_choices,
-                    current_voice,
-                )
-                if selected is None:
-                    continue
-                if selected == '__custom__':
-                    custom_voice = self._prompt_string(
-                        'google_tts_voice_custom',
-                        'Enter Google Cloud TTS voice name',
-                        str(current_voice) if current_voice is not None else '',
-                    )
-                    if custom_voice is not None:
-                        self._set(voice_path, custom_voice.strip())
-                else:
-                    self._set(voice_path, selected)
-
-    def _edit_azure_tts_settings(self, prefix: str):
-        voice_path = f'{prefix}.voice'
-        creds_path = f'{prefix}.credentialsPath'
-        azure_voices = [
-            'en-US-AmberNeural',
-            'en-US-AndrewNeural',
-            'en-US-AriaNeural',
-            'en-US-AshleyNeural',
-            'en-US-AvaNeural',
-            'en-US-BrianNeural',
-            'en-US-DavisNeural',
-            'en-US-EmmaNeural',
-            'en-US-GuyNeural',
-            'en-US-JennyNeural',
-            'en-US-RogerNeural',
-            'en-US-SteffanNeural',
-        ]
-
-        while True:
-            rows = [
-                ('credentialsPath', _fmt_current(self._get(creds_path, '')), 'credentials'),
-                ('voice', _fmt_current(self._get(voice_path, '')), 'voice'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='Azure TTS settings', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-
-            if answers['item'] == 'credentials':
-                val = self._prompt_string(
-                    'azure_tts_credentials',
-                    'Credentials file path',
-                    str(self._get(creds_path, '')),
-                )
-                if val is not None:
-                    self._set(creds_path, val)
-
-            elif answers['item'] == 'voice':
-                current_voice = self._get(voice_path, '')
-                voice_choices = [(v, v) for v in azure_voices]
-                voice_choices.append(('Other voice', '__custom__'))
-
-                selected = self._prompt_enum(
-                    'azure_tts_voice',
-                    'Azure TTS voice',
-                    voice_choices,
-                    current_voice,
-                )
-                if selected is None:
-                    continue
-                if selected == '__custom__':
-                    custom_voice = self._prompt_string(
-                        'azure_tts_voice_custom',
-                        'Enter Azure TTS voice name',
-                        str(current_voice) if current_voice is not None else '',
-                    )
-                    if custom_voice is not None:
-                        self._set(voice_path, custom_voice.strip())
-                else:
-                    self._set(voice_path, selected)
-
-    def _edit_see(self):
-        if not self._get('hardware.camera', False):
-            console.print(
-                '[yellow]  ⚠  hardware.camera is disabled. '
-                'Enable it in the hardware section or see will be '
-                'ignored at runtime.[/yellow]\n')
-        while True:
-            console.print('\n[bold]see - Camera + Vision[/bold]\n')
-            res = self._get('see.cameraResolution', [1920, 1080])
-            rows = [
-                ('cameraResolution', _fmt_current(res), 'resolution'),
-                ('verticalFlip', f"{_fmt_bool(self._get('see.verticalFlip', False)):5}", 'vflip'),
-                ('horizontalFlip', f"{_fmt_bool(self._get('see.horizontalFlip', False)):5}", 'hflip'),
-                ('captureTimeout', _fmt_current(self._get('see.captureTimeout', 500)), 'capture_timeout'),
-                ('zeroShutterLag', f"{_fmt_bool(self._get('see.zeroShutterLag', False)):5}", 'zsl'),
-                ('backend.type', _fmt_current(self._get('see.backend.type', 'local')), 'backend_type'),
-            ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('  backend settings   (expand for current backend type)', 'backend_settings'))
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='see configuration', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-            item = answers['item']
-
-            if item == 'resolution':
-                val = self._prompt_enum('res', 'Camera resolution', [
-                    ('1920 x 1080  Full HD', [1920, 1080]),
-                    ('1280 x  720  HD',      [1280, 720]),
-                    (' 640 x  480  VGA',     [640, 480]),
-                    (' 320 x  240  Low bandwidth', [320, 240]),
-                ], res)
-                if val is not None:
-                    self._set('see.cameraResolution', val)
-
-            elif item == 'vflip':
-                val = self._prompt_bool(
-                    'vflip', 'Flip camera image vertically',
-                    self._get('see.verticalFlip', False))
-                if val is not None:
-                    self._set('see.verticalFlip', val)
-
-            elif item == 'hflip':
-                val = self._prompt_bool(
-                    'hflip', 'Flip camera image horizontally',
-                    self._get('see.horizontalFlip', False))
-                if val is not None:
-                    self._set('see.horizontalFlip', val)
-
-            elif item == 'capture_timeout':
-                val = self._prompt_int(
-                    'capture_timeout',
-                    'Camera capture timeout in milliseconds',
-                    self._get('see.captureTimeout', 500),
-                )
-                if val is not None:
-                    self._set('see.captureTimeout', val)
-
-            elif item == 'zsl':
-                val = self._prompt_bool(
-                    'zsl',
-                    'Enable zero shutter lag',
-                    self._get('see.zeroShutterLag', False),
-                )
-                if val is not None:
-                    self._set('see.zeroShutterLag', val)
-
-            elif item == 'backend_type':
-                val = self._prompt_enum('type', 'Vision backend', [
-                    ('none                - disable vision', 'none'),
-                    ('local               - on-device (offline)', 'local'),
-                    ('google-cloud-vision - Google Cloud Vision', 'google-cloud-vision'),
-                    ('azure-vision        - Microsoft Azure Vision', 'azure-vision'),
-                ], self._get('see.backend.type', 'local'))
-                if val is not None:
-                    self._set('see.backend.type', val)
-
-            elif item == 'backend_settings':
-                self._edit_vision_backend_settings()
-
-    def _edit_vision_backend_settings(self):
-        backend_type = self._get('see.backend.type', 'local')
-        console.print(
-            f'\n[bold]Vision backend settings[/bold]  [dim](type: {backend_type})[/dim]\n')
-
-        if backend_type == 'none':
-            console.print('[yellow]  No settings for backend type "none".[/yellow]\n')
-            return
-
-        prefix = f'see.backend.{backend_type}'
-        if backend_type == 'local':
-            fields = [
-                (f'{prefix}.objectDetectionModel',          'Object detection model',          'string'),
-                (f'{prefix}.imageClassificationModel',      'Image classification model',      'string'),
-                (f'{prefix}.faceDetectionModel',            'Face detection model',            'string'),
-                (f'{prefix}.objectDetectionConfidence',     'Object detection confidence',     'float01'),
-                (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
-                (f'{prefix}.faceDetectionConfidence',       'Face detection confidence',       'float01'),
-            ]
-        elif backend_type == 'google-cloud-vision':
-            fields = [
-                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
-                (f'{prefix}.objectDetectionConfidence',  'Object detection confidence',     'float01'),
-                (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
-                (f'{prefix}.faceDetectionConfidence',    'Face detection confidence',       'float01'),
-            ]
-        elif backend_type == 'azure-vision':
-            fields = [
-                (f'{prefix}.credentialsPath',            'Credentials file path',           'string'),
-                (f'{prefix}.objectDetectionConfidence',  'Object detection confidence',     'float01'),
-                (f'{prefix}.imageClassificationConfidence', 'Image classification confidence', 'float01'),
-            ]
-        else:
-            console.print(f'[yellow]  Unknown backend type: {backend_type}[/yellow]\n')
-            return
-
-        self._edit_fields_menu(f'Vision backend ({backend_type})', fields)
-
-    def _edit_shine(self):
-        while True:
-            console.print('\n[bold]shine - LED[/bold]\n')
-            items = [
-                ('  NeoPixel LED settings',        'neopixel'),
-                ('  Common Anode RGB LED settings', 'commonanode'),
-                ('← Back', '__back__'),
-            ]
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='shine configuration', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-            if answers['item'] == 'neopixel':
-                self._edit_neopixel()
-            elif answers['item'] == 'commonanode':
-                self._edit_commonanode()
-
-    def _edit_neopixel(self):
-        rpi_model = self.system_info['raspberry_pi']['model']
-        if not bool(self._get('shine.hasNeopixelLED', False)):
-            console.print(
-                '[yellow]  ⚠  shine.hasNeopixelLED is disabled. '
-                'Enable it in the hardware section or NeoPixel will be '
-                'ignored at runtime.[/yellow]\n')
-        while True:
-            console.print('\n[bold]shine.neopixel - NeoPixel LED[/bold]\n')
-            if rpi_model == '5':
-                rows = [
-                    ('spiInterface', _fmt_current(self._get('shine.neopixel.spiInterface', '/dev/spidev0.0')), 'spi'),
-                    ('useGRBFormat', f"{_fmt_bool(self._get('shine.neopixel.useGRBFormat', False)):5}", 'grb'),
-                ]
-            else:
-                rows = [
-                    ('gpioPin', _fmt_current(self._get('shine.neopixel.gpioPin', 21)), 'pin'),
-                    ('useGRBFormat', f"{_fmt_bool(self._get('shine.neopixel.useGRBFormat', False)):5}", 'grb'),
-                ]
-            label_width = max(len(label) for label, _, _ in rows)
-            items = [
-                (f'  {label.ljust(label_width)}   [{value}]', key)
-                for label, value, key in rows
-            ]
-            items.append(('← Back', '__back__'))
-            try:
-                answers = inquirer.prompt(
-                    [inquirer.List('item', message='NeoPixel settings', choices=items)],
-                    raise_keyboard_interrupt=True,
-                )
-            except KeyboardInterrupt:
-                break
-            if answers is None or answers['item'] == '__back__':
-                break
-
-            if answers['item'] == 'pin':
-                val = self._prompt_enum('pin', 'GPIO pin for NeoPixel (RPi 3/4)', [
-                    ('GPIO 21 - recommended (no audio/servo conflicts)', 21),
-                    ('GPIO 10 - works on all models (SPI MOSI)',         10),
-                    ('GPIO 12 - PWM, may conflict with servo',           12),
-                    ('GPIO 18 - conflicts with audio output',            18),
-                ], self._get('shine.neopixel.gpioPin', 21))
-                if val is not None:
-                    if val == 18:
-                        console.print(
-                            '[yellow]  ⚠  GPIO 18 conflicts with audio output. '
-                            'Use GPIO 21 to avoid issues.[/yellow]')
-                    self._set('shine.neopixel.gpioPin', val)
-
-            elif answers['item'] == 'spi':
-                val = self._prompt_string(
-                    'spi_interface',
-                    'SPI interface for NeoPixel (RPi 5)',
-                    str(self._get('shine.neopixel.spiInterface', '/dev/spidev0.0')),
-                )
-                if val is not None:
-                    self._set('shine.neopixel.spiInterface', val.strip())
-
-            elif answers['item'] == 'grb':
-                val = self._prompt_bool(
-                    'grb',
-                    'Use GRB color format (enable if colors appear swapped)',
-                    self._get('shine.neopixel.useGRBFormat', False))
-                if val is not None:
-                    self._set('shine.neopixel.useGRBFormat', val)
-
-    def _edit_commonanode(self):
-        if not bool(self._get('shine.hasCommonAnodeLED', False)):
-            console.print(
-                '[yellow]  ⚠  shine.hasCommonAnodeLED is disabled. '
-                'Enable it in the hardware section or the common anode LED will be '
-                'ignored at runtime.[/yellow]\n')
-        console.print('\n[bold]shine.commonanode - Common Anode RGB LED[/bold]\n')
-        self._edit_fields_menu('Common Anode LED', [
-            ('shine.commonanode.redPin',   'Red channel GPIO pin',   'integer'),
-            ('shine.commonanode.greenPin', 'Green channel GPIO pin', 'integer'),
-            ('shine.commonanode.bluePin',  'Blue channel GPIO pin',  'integer'),
-        ])
-
-    def _edit_wave(self):
-        if not self._get('hardware.servo', False):
-            console.print(
-                '[yellow]  ⚠  hardware.servo is disabled. '
-                'Enable it in the hardware section or wave will be '
-                'ignored at runtime.[/yellow]\n')
-        console.print('\n[bold]wave - Servo[/bold]\n')
-        self._edit_fields_menu('Wave (Servo)', [
-            ('wave.servoPin', 'Servo GPIO pin', 'enum_servo'),
-        ])
-
-
 # ── Bootstrap helpers ─────────────────────────────────────────────────────────
 
 def download_default_config(config_dir: Path, config_path: Path) -> bool:
@@ -1292,7 +563,7 @@ def ensure_config_exists(config_dir: Path, config_path: Path) -> bool:
 
 # ── Editor entry point ────────────────────────────────────────────────────────
 
-def run_editor(config_path: Path) -> int:
+def run_editor(config_path: Path, schema: Optional[TJBotConfigSchema] = None) -> int:
     """
     Load *config_path* as a tomlkit document, run the interactive editor,
     and write back the mutated document on save — preserving all comments.
@@ -1307,7 +578,10 @@ def run_editor(config_path: Path) -> int:
         console.print(f'[red]Error loading config: {exc}[/red]\n')
         return 1
 
-    editor = TJBotConfigEditor(doc)
+    if schema is None:
+        schema = load_config_schema(required=True)
+
+    editor = TJBotConfigEditor(doc, schema=schema)
     want_save = editor.run()
 
     if not want_save:

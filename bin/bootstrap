@@ -240,6 +240,9 @@ else
     sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" pull
 fi
 
+echo "Initializing TJBot submodules"
+sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" submodule update --init --recursive
+
 # ============================================================================
 # Add tjbot/bin to $PATH
 # ============================================================================
