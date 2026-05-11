@@ -11,14 +11,14 @@ class SchemaLoaderTests(unittest.TestCase):
         schema_text = """
 type: object
 properties:
-  log:
-    type: object
-    description: Logging configuration.
-    properties:
-      level:
-        type: string
-        enum: [info, debug]
-        default: info
+    log:
+        type: object
+        description: Console logging configuration.
+        properties:
+            level:
+                type: string
+                enum: [info, debug]
+                default: info
 """
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -36,7 +36,7 @@ properties:
                     os.environ['TJBOT_CONFIG_SCHEMA_PATH'] = original
 
         section = schema.get_section('log')
-        self.assertEqual(section.description, 'Logging configuration.')
+        self.assertEqual(section.description, 'Console logging configuration.')
         properties = schema.get_object_properties(section.schema)
         self.assertEqual([item.key for item in properties], ['level'])
 

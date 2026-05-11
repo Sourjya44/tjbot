@@ -19,7 +19,7 @@ class WizardSchemaIntegrationTests(unittest.TestCase):
             [key for _label, key in sections],
             ['log', 'hardware', 'listen', 'see', 'shine', 'speak', 'wave'],
         )
-        self.assertIn('Logging configuration.', sections[0][0])
+        self.assertIn('Console logging configuration.', sections[0][0])
 
 
 if __name__ == '__main__':
