@@ -93,7 +93,7 @@ while (true) {
             tj.shine('on');
         } else {
             // try to find a color name by checking words and multi-word combinations
-            const words = msg.toLowerCase().split(/\s+/);
+            const words = msg.toLowerCase().replace(/\.$/, '').split(/\s+/);
             let foundColor = false;
 
             // try progressively longer word combinations (to match multi-word colors like "dark red")
