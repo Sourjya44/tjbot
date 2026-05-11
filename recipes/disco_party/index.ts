@@ -53,7 +53,7 @@ console.log('===============');
 
 console.log('TJBot is ready to shine!');
 console.log(`I understand lots of colors! Here are a few: ${randomColors.join(', ')}`);
-console.log("You can tell me to shine my light a different color by saying 'turn the light red' or 'change the light to green' or 'turn the light off'.");
+console.log("You can tell me to shine my light a different color by saying 'turn the light red' or 'change the color to green' or 'turn the led off'.");
 console.log("You can also say 'disco party' to have a disco party!");
 console.log("Say 'stop' or press Ctrl-C to exit this recipe.");
 
@@ -71,29 +71,36 @@ while (true) {
         continue;
     }
 
-    console.log(`Heard: "${msg}"`);
+    // lowercase, trim whitespace, remove trailing punctuation
+    const normalizedMsg = msg.toLowerCase().trim().replace(/\.$/, '');
 
-    if (msg.toLowerCase().startsWith('stop')) {
+    if (normalizedMsg.startsWith('stop')) {
         console.log('Goodbye!');
         process.exit(0);
     }
 
-    const containsTurn = msg.indexOf('turn') >= 0;
-    const containsChange = msg.indexOf('change') >= 0;
-    const containsSet = msg.indexOf('set') >= 0;
-    const containsLight = msg.indexOf('the light') >= 0;
-    const containsDisco = msg.indexOf('disco') >= 0;
-    const containsParty = msg.indexOf('party') >= 0;
+    const containsCommand = normalizedMsg.indexOf('turn') >= 0
+        || normalizedMsg.indexOf('change') >= 0
+        || normalizedMsg.indexOf('set') >= 0
+        || normalizedMsg.indexOf('make') >= 0
+        || normalizedMsg.indexOf('shine') >= 0;
+    const containsLight = normalizedMsg.indexOf('light') >= 0
+        || normalizedMsg.indexOf('led') >= 0
+        || normalizedMsg.indexOf('color') >= 0;
+    const containsDisco = normalizedMsg.indexOf('disco') >= 0;
+    const containsParty = normalizedMsg.indexOf('party') >= 0;
 
-    if ((containsTurn || containsChange || containsSet) && containsLight) {
+    if (containsCommand && containsLight) {
         // check for 'on' or 'off' first (exact word match)
-        if (msg.indexOf('off') >= 0) {
+        if (normalizedMsg.indexOf('off') >= 0) {
+            console.log('Turning the light off');
             tj.shine('off');
-        } else if (msg.indexOf('on') >= 0) {
+        } else if (normalizedMsg.indexOf('on') >= 0) {
+            console.log('Turning the light on');
             tj.shine('on');
         } else {
             // try to find a color name by checking words and multi-word combinations
-            const words = msg.toLowerCase().replace(/\.$/, '').split(/\s+/);
+            const words = normalizedMsg.replace(/\.$/, '').split(/\s+/);
             let foundColor = false;
 
             // try progressively longer word combinations (to match multi-word colors like "dark red")
@@ -101,6 +108,7 @@ while (true) {
                 for (let i = 0; i <= words.length - len; i++) {
                     const candidate = words.slice(i, i + len).join('');  // remove spaces
                     if (tjColors.includes(candidate)) {
+                        console.log(`Turning the light ${candidate}`);
                         tj.shine(candidate);
                         foundColor = true;
                         break;
@@ -114,6 +122,9 @@ while (true) {
             }
         }
     } else if (containsDisco || containsParty) {
+        console.log('Starting disco party!');
         discoParty(tj, tjColors);
+    } else {
+        console.log("Sorry, I didn't understand that command.");
     }
 }
