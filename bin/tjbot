@@ -284,11 +284,6 @@ validate_recipe_dir() {
         return 1
     fi
 
-    if [ ! -f "$recipe_dir/recipe.toml" ]; then
-        echo -e "${RED}Error: Missing recipe.toml in $recipe_dir${NC}"
-        return 1
-    fi
-
     if [ ! -f "$recipe_dir/mise.toml" ]; then
         echo -e "${RED}Error: Missing mise.toml in $recipe_dir${NC}"
         return 1
