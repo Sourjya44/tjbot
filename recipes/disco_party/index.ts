@@ -82,15 +82,15 @@ while (true) {
     const containsCommand = normalizedMsg.indexOf('turn') >= 0
         || normalizedMsg.indexOf('change') >= 0
         || normalizedMsg.indexOf('set') >= 0
-        || normalizedMsg.indexOf('make') >= 0
-        || normalizedMsg.indexOf('shine') >= 0;
+        || normalizedMsg.indexOf('make') >= 0;
+    const containsShine = normalizedMsg.indexOf('shine') >= 0;
     const containsLight = normalizedMsg.indexOf('light') >= 0
         || normalizedMsg.indexOf('led') >= 0
         || normalizedMsg.indexOf('color') >= 0;
     const containsDisco = normalizedMsg.indexOf('disco') >= 0;
     const containsParty = normalizedMsg.indexOf('party') >= 0;
 
-    if (containsCommand && containsLight) {
+    if (containsCommand && containsLight || containsShine) {
         // check for 'on' or 'off' first (exact word match)
         if (normalizedMsg.indexOf('off') >= 0) {
             console.log('Turning the light off');
