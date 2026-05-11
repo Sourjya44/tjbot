@@ -82,12 +82,13 @@ class ModelRegistry:
     
     def _find_registry(self) -> Optional[Path]:
         """
-        Find model-registry.yaml from node-tjbotlib.
+        Find model-registry.yaml from node-tjbotlib or local vendor directory.
         
         Returns:
             Path to model-registry.yaml or None if not found
         """
         search_paths = [
+            Path(__file__).parent.parent.parent / 'vendor' / 'tjbot-config' / 'model-registry.yaml',
             Path.home() / 'Desktop' / 'node-tjbotlib' / 'src' / 'config' / 'model-registry.yaml',
             Path('/usr/local/lib/node_modules/node-tjbotlib/src/config/model-registry.yaml'),
             Path('/usr/lib/node_modules/node-tjbotlib/src/config/model-registry.yaml'),
@@ -140,10 +141,17 @@ class ModelRegistry:
         models = []
         
         try:
-            for model_key, model_data in self.registry_data.items():
+            # Get models list from registry YAML structure
+            models_list = self.registry_data.get('models', [])
+            if not isinstance(models_list, list):
+                return self.FALLBACK_MODELS['stt']
+            
+            # Iterate over models list directly
+            for model_data in models_list:
                 if not isinstance(model_data, dict):
                     continue
                 if model_data.get('type') == 'stt':
+                    model_key = model_data.get('key', '')
                     # Parse size from URL or required files
                     size_mb = 0
                     if 'size' in model_data:
@@ -183,10 +191,17 @@ class ModelRegistry:
         models = []
         
         try:
-            for model_key, model_data in self.registry_data.items():
+            # Get models list from registry YAML structure
+            models_list = self.registry_data.get('models', [])
+            if not isinstance(models_list, list):
+                return self.FALLBACK_MODELS['tts']
+            
+            # Iterate over models list directly
+            for model_data in models_list:
                 if not isinstance(model_data, dict):
                     continue
                 if model_data.get('type') == 'tts':
+                    model_key = model_data.get('key', '')
                     size_mb = 0
                     if 'size' in model_data:
                         size_mb = self._parse_size_mb(model_data['size'])
@@ -232,10 +247,17 @@ class ModelRegistry:
         registry_type = vision_type_map.get(model_type, model_type)
         
         try:
-            for model_key, model_data in self.registry_data.items():
+            # Get models list from registry YAML structure
+            models_list = self.registry_data.get('models', [])
+            if not isinstance(models_list, list):
+                return self.FALLBACK_MODELS['vision'].get(model_type, [])
+            
+            # Iterate over models list directly
+            for model_data in models_list:
                 if not isinstance(model_data, dict):
                     continue
                 if model_data.get('type') == registry_type:
+                    model_key = model_data.get('key', '')
                     size_mb = 0
                     if 'size' in model_data:
                         size_mb = self._parse_size_mb(model_data['size'])
@@ -269,10 +291,17 @@ class ModelRegistry:
         models = []
         
         try:
-            for model_key, model_data in self.registry_data.items():
+            # Get models list from registry YAML structure
+            models_list = self.registry_data.get('models', [])
+            if not isinstance(models_list, list):
+                return self.FALLBACK_MODELS['vad']
+            
+            # Iterate over models list directly
+            for model_data in models_list:
                 if not isinstance(model_data, dict):
                     continue
                 if model_data.get('type') == 'vad':
+                    model_key = model_data.get('key', '')
                     models.append({
                         'key': model_key,
                         'label': model_data.get('label', model_key),
