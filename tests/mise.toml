@@ -30,9 +30,14 @@ description = "Run speaker hardware test"
 [tasks.test-stt]
 depends = ["install"]
 run = "cd node_modules/tjbot && npm run test-stt"
-description = "Run speech-to-text hardware test"
+description = "Run speech-to-text test"
 
 [tasks.test-tts]
 depends = ["install"]
 run = "cd node_modules/tjbot && npm run test-tts"
-description = "Run text-to-speech hardware test"
+description = "Run text-to-speech test"
+
+[tasks.test-vision]
+depends = ["install"]
+run = "cd node_modules/tjbot && npm run test-vision"
+description = "Run computer vision test"

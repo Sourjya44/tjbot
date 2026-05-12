@@ -1,10 +1,10 @@
-# TJBot Hardware Tests
+# TJBot Hardware & Software Tests
 
-These tests are provided to help you ensure your TJBot's hardware is functioning correctly.
+These tests are provided to help you ensure your TJBot's hardware & software are functioning correctly.
 
-## Running Hardware Tests
+## Running Tests
 
-Hardware tests are run via the `tjbot` launcher, which delegates to node-tjbotlib's live hardware test suite.
+TJBot's tests are run via the `tjbot` launcher, which delegates to node-tjbotlib's live test suite.
 
 ### List available tests
 
@@ -22,27 +22,21 @@ tjbot test servo
 tjbot test stt
 tjbot test speaker
 tjbot test tts
+tjbot test vision
 ```
 
 ## How It Works
 
-- Tests are sourced from `node-tjbotlib/tests/live/`
+- Tests are TypeScript-based and sourced from `node-tjbotlib/tests/live/`
 - Dependencies are automatically installed on first run
 - Each test is interactive and will prompt you to verify that TJBot performed the expected action
-- Tests require `sudo` for GPIO hardware access (automatically handled)
 
 ## Running Tests Without `tjbot`
 
 You can run the hardware tests from this directory directly using `mise`:
 
 ```sh
-mise run test-camera
-mise run test-led
-mise run test-microphone
-mise run test-servo
-mise run test-speaker
-mise run test-stt
-mise run test-tts
+mise run <test-name>
 ```
 
 > 💡 `mise` will automatically install the latest version of `node-tjbotlib`, which is where the hardware tests are kept.
