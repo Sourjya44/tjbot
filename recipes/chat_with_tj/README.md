@@ -1,6 +1,6 @@
 # Chat with TJ
 
-> 🤖 🎤 Build a conversational partner with watsonx.ai!
+> 🤖 🎤 Converse with TJBot using IBM watsonx.ai!
 
 This recipe uses IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) service to turn TJBot into a conversational partner.
 
