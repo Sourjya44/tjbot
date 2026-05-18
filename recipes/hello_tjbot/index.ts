@@ -27,4 +27,4 @@ console.log('===============');
 console.log('  HELLO TJBOT  ');
 console.log('===============');
 
-await tj.speak('Hello! My name is TJBot and it is very nice to meet you!');
+await tj.speak('Hello! My name is TJ Bot and it is very nice to meet you!');
