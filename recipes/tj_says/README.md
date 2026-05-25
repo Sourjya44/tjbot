@@ -34,6 +34,14 @@ TJBot will choose an action at random and ask you to perform that action. It use
 > [!CAUTION]
 > Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
+### Prepare your recipe's configuration
+
+Create a `recipe.toml` file by copying the sample `recipe.sample.toml` file:
+
+```sh
+cp recipe.sample.toml recipe.toml
+```
+
 ## Run
 
 You can run this recipe using the `tjbot` command or you can run it manually using `mise`.

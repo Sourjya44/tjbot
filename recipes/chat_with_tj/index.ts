@@ -17,6 +17,7 @@
 
 import TJBot from 'tjbot';
 import { WatsonXAI } from '@ibm-cloud/watsonx-ai';
+import { IamAuthenticator } from 'ibm-cloud-sdk-core';
 
 const BASE_PROMPT = `
 You are TJBot, a friendly and helpful social robot made out of cardboard.
@@ -33,6 +34,7 @@ const config = TJBot.getRecipeConfig();
 
 // create an instance of the watsonx.ai service
 const wxai = WatsonXAI.newInstance({
+    authenticator: new IamAuthenticator({ apikey: config.apiKey as string }),
     serviceUrl: config.serviceUrl as string | undefined,
     version: config.serviceVersion as string | undefined,
 });
@@ -43,7 +45,7 @@ let conversationHistory = '';
 // instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
     hardware: {
-        led: Boolean(config.hasLED ?? false),
+        led: true,
         microphone: true,
         speaker: true
     }
@@ -66,15 +68,9 @@ process.on('SIGINT', () => {
 while (true) {
     console.log('👂 listening...');
 
-    if (config.hasLED) {
-        tj.shine('green');
-    }
-
+    tj.shine('green');
     let msg = await tj.listen();
-
-    if (config.hasLED) {
-        tj.pulse('orange');
-    }
+    tj.pulse('orange');
 
     if (msg === undefined || msg === '') {
         continue;
@@ -123,9 +119,8 @@ AI: `;
         console.log(`🤖 > ${text}`);
 
         console.log('🗯️ speaking...');
-        if (config.hasLED) {
-            tj.pulse('yellow');
-        }
+        tj.pulse('yellow');
+
         await tj.speak(text);
         console.log('🗯️ speaking finished');
 

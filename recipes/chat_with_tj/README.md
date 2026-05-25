@@ -44,6 +44,14 @@ graph LR
 
 As this recipe demonstrates how to use IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) service, you will need to register for an IBM Cloud account, obtain an IBM Cloud API key, and create a watsonx.ai project.
 
+### Prepare your recipe's configuration
+
+Create a `recipe.toml` file by copying the sample `recipe.sample.toml` file:
+
+```sh
+cp recipe.sample.toml recipe.toml
+```
+
 ### Register for an IBM Cloud account
 
 If you do not already have an IBM Cloud account, [register for one](https://cloud.ibm.com/).
@@ -57,16 +65,10 @@ Create an IBM Cloud IAM API key by following these steps:
 3. Type in a name for your API key and click "Create" (we recommend "TJBot"!)
 4. Copy the API key. **Important**: Once you close the dialog, you will not be able to retrieve this API key in the future; instead, you will need to revoke the key and generate a new one.
 
-Once you have your API key, first make a copy of the `ibm-credentials.env` file.
+Once you have your API key, add it to your `recipe.toml` file:
 
-```sh
-cp ibm-credentials.sample.env ibm-credentials.env
-```
-
-Then edit the file to add your API key.
-
-```env
-WATSONX_AI_APIKEY= # FILL IN WITH YOUR IBM CLOUD API KEY
+```toml
+apiKey = '' # FILL IN WITH YOUR WATSONX.AI API KEY
 ```
 
 ### Create a watsonx.ai project
@@ -74,34 +76,14 @@ WATSONX_AI_APIKEY= # FILL IN WITH YOUR IBM CLOUD API KEY
 Create a watsonx.ai project by following these steps:
 
 1. Launch [watsonx.ai](https://dataplatform.cloud.ibm.com/wx/home?context=wx) and sign in.
-2. Click the "+" sign in the "Projects" section and follow the steps to create a new project.
-3. Open the project and click the "Manage" tab.
-4. From the "General" section copy your `projectId`. Save this for later.
-5. Next click "Services & integrations".
-6. Click "Associate service" and select the "Watson Machine Learning" service.
-7. Click "Associate" at the bottom right.
-8. Find your `serviceUrl` by visiting the [API documentation](https://cloud.ibm.com/apidocs/machine-learning) and locating the section titled "Endpoint URLs." Copy the URL that corresponds to the region in which you created your Watson Machine Learning service, you will need it in the next step.
-
-Once you have the `projectId` and `serviceUrl`, edit the `recipe.toml` file and paste them in:
-
-```toml
-projectId = <your watsonx.ai projectId>
-serviceUrl = <your watsonx.ai serviceUrl>
-```
+2. Click the "+" button in the "Projects" section and follow the steps to create a new project.
+3. After the project has been created, click the "IBM watsonx" button at the top to navigate to the home screen.
+4. In the "Developer access" box, select your project.
+5. Copy the "Project ID" and paste it into your `recipe.toml` file under `projectId`.
+6. Copy the "watsonx.ai URL" and paste it into your `recipe.toml` file under `serviceUrl`.
 
 > [!TIP]
 > In the United States, the watsonx.ai `serviceUrl` is `https://us-south.ml.cloud.ibm.com`.
-
-### (Optional) Shine while speaking
-
-Have an LED hooked up to your TJBot? Update your `recipe.toml` file to indicate which kind of LED you have by setting one (or both) of these values to `true`:
-
-```toml
-useNeoPixelLED = false     # set to true if using a NeoPixel LED
-useCommonAnodeLED = false  # set to true if using a Common Anode LED
-```
-
-Then, TJBot will shine green when listening, orange when processing your speech, and yellow when speaking!
 
 ## Run
 

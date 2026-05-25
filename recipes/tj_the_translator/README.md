@@ -31,7 +31,15 @@ To use this recipe, you need to create a free Google Cloud project. You will tur
 > [!NOTE]
 > Making a Google Cloud project is free. Google may ask you to add a payment method before you can turn on the API, but many small projects stay within the free trial or free usage limits.
 
-### 1. Create a Google Cloud project
+### Prepare your recipe's configuration
+
+Create a `recipe.toml` file by copying the sample `recipe.sample.toml` file:
+
+```sh
+cp recipe.sample.toml recipe.toml
+```
+
+### Create a Google Cloud project
 
 1. Open the [Google Cloud Console](https://console.cloud.google.com/).
 2. Sign in with your Google account.
@@ -41,13 +49,13 @@ To use this recipe, you need to create a free Google Cloud project. You will tur
 6. Click **Create**.
 7. Wait a moment, then make sure your new project is selected.
 
-### 2. Turn on Cloud Translation for your project
+### Turn on Cloud Translation for your project
 
 1. Open the [Cloud Translation API page](https://console.cloud.google.com/apis/library/translate.googleapis.com).
 2. Check that your new project is selected at the top of the page.
 3. Click **Enable**.
 
-### 3. Make a robot account for TJBot
+### Make a robot account for TJBot
 
 1. Open the [Service Accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts).
 2. Make sure your TJBot project is still selected.
@@ -57,7 +65,7 @@ To use this recipe, you need to create a free Google Cloud project. You will tur
 6. If Google shows extra permission steps, keep clicking **Continue** or **Done** unless it clearly says something is required.
 7. When you are finished, you should see your new service account in the list.
 
-### 4. Download the credentials file
+### Download the credentials file
 
 1. Click the new service account you just made.
 2. Click the **Keys** tab.
@@ -67,7 +75,7 @@ To use this recipe, you need to create a free Google Cloud project. You will tur
 6. Click **Create**.
 7. A JSON file will download to your computer. This is your credentials file.
 
-### 5. Put the file where TJBot can find it
+### Put the file where TJBot can find it
 
 Save the downloaded file to your TJBot, ensure it is named `google-credentials.json`, and put it in one of these places:
 
