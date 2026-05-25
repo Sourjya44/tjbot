@@ -141,3 +141,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# TJBot recipe configuration files -- may contain API keys
+# so do not commit them to git!
+recipe.toml
