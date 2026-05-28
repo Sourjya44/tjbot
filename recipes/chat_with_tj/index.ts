@@ -18,6 +18,7 @@
 import TJBot from 'tjbot';
 import { WatsonXAI } from '@ibm-cloud/watsonx-ai';
 import { IamAuthenticator } from 'ibm-cloud-sdk-core';
+import { inspect } from 'node:util';
 
 const BASE_PROMPT = `
 You are TJBot, a friendly and helpful social robot made out of cardboard.
@@ -113,10 +114,10 @@ AI: `;
 
     try {
         const response = await wxai.generateText(params);
-        const text = response.result.results[0].generated_text;
+        const text = response.result.results[0].generated_text.split(/\r?\n/, 1)[0];
 
-        console.log(`👩‍💻 > ${msg}`);
-        console.log(`🤖 > ${text}`);
+        console.log(`👩‍💻 ${msg}`);
+        console.log(`🤖 ${text}`);
 
         console.log('🗯️ speaking...');
         tj.pulse('yellow');
@@ -126,7 +127,7 @@ AI: `;
 
         // add to the conversation history
         conversationHistory += `Human: ${msg}\n AI: ${text}\n\n`;
-    } catch (err) {
-        console.warn(`⚠️ > ${err}`);
+    } catch (err: unknown) {
+        console.warn(`⚠️ watsonx.ai request failed: ${inspect(err, { depth: null })}`);
     }
 }

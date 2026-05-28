@@ -56,14 +56,29 @@ cp recipe.sample.toml recipe.toml
 
 If you do not already have an IBM Cloud account, [register for one](https://cloud.ibm.com/).
 
-### Obtain an IBM Cloud API key
+### Create a watsonx.ai project
 
-Create an IBM Cloud IAM API key by following these steps:
+Create a watsonx.ai project by following these steps:
 
-1. Visit the [IBM Cloud IAM API Keys](https://cloud.ibm.com/iam/apikeys) page.
-2. Click the blue "Create" button.
-3. Type in a name for your API key and click "Create" (we recommend "TJBot"!)
-4. Copy the API key. **Important**: Once you close the dialog, you will not be able to retrieve this API key in the future; instead, you will need to revoke the key and generate a new one.
+1. Launch [watsonx.ai](https://dataplatform.cloud.ibm.com/wx/home?context=wx) and sign in.
+2. As part of the onboarding process, a new project will be created for you named `<Your Name>'s sandbox`. You will use this project for TJBot.
+3. On the [watsonx.ai](https://dataplatform.cloud.ibm.com/wx/home?context=wx) main screen, locate the "Developer access" box and select your project.
+4. Copy the "Project ID" and paste it into your `recipe.toml` file under `projectId`.
+5. Copy the "watsonx.ai URL" and paste it into your `recipe.toml` file under `serviceUrl`.
+
+> [!TIP]
+> In the United States, the watsonx.ai `serviceUrl` is `https://us-south.ml.cloud.ibm.com`.
+
+> [!IMPORTANT]
+> It is possible to create a separate project for TJBot if you want to keep it separate from your sandbox project. One caveat is that the new project must be associated with a watsonx.ai Runtime service (from the project page, under "Manage > Services & integrations"), but IBM Cloud only allows users to create one Lite (i.e. free) instance of this service, this service can only be associated with a single project at a time, and this service was already created and associated with your sandbox project during onboarding.
+
+### Obtain an API key
+
+Next, create an API key by following these steps:
+
+1. On the [watsonx.ai](https://dataplatform.cloud.ibm.com/wx/home?context=wx) main page, find the "Developer Access" box and select your project. Click "Create API key."
+2. Type a name for your key, such as "TJBot API Key" and click "Create."
+3. Copy the API key. **Important**: Once you close the dialog, you will not be able to retrieve this API key in the future; instead, you will need to revoke the key and generate a new one.
 
 Once you have your API key, add it to your `recipe.toml` file:
 
@@ -71,19 +86,8 @@ Once you have your API key, add it to your `recipe.toml` file:
 apiKey = '' # FILL IN WITH YOUR WATSONX.AI API KEY
 ```
 
-### Create a watsonx.ai project
-
-Create a watsonx.ai project by following these steps:
-
-1. Launch [watsonx.ai](https://dataplatform.cloud.ibm.com/wx/home?context=wx) and sign in.
-2. Click the "+" button in the "Projects" section and follow the steps to create a new project.
-3. After the project has been created, click the "IBM watsonx" button at the top to navigate to the home screen.
-4. In the "Developer access" box, select your project.
-5. Copy the "Project ID" and paste it into your `recipe.toml` file under `projectId`.
-6. Copy the "watsonx.ai URL" and paste it into your `recipe.toml` file under `serviceUrl`.
-
 > [!TIP]
-> In the United States, the watsonx.ai `serviceUrl` is `https://us-south.ml.cloud.ibm.com`.
+> You can also create & manage IBM Cloud API keys on the [IBM Cloud IAM API Keys](https://cloud.ibm.com/iam/apikeys) page.
 
 ## Run
 
