@@ -40,7 +40,7 @@ graph LR
 ## Configure
 
 > [!CAUTION]
-> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 As this recipe demonstrates how to use IBM's [watsonx.ai](https://www.ibm.com/products/watsonx-ai) service, you will need to register for an IBM Cloud account, obtain an IBM Cloud API key, and create a watsonx.ai project.
 

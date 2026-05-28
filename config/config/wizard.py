@@ -527,7 +527,7 @@ class TJBotConfigEditor:
 
         return answers['dev']
 
-# ── Bootstrap helpers ─────────────────────────────────────────────────────────
+# ── Setup helpers ─────────────────────────────────────────────────────────
 
 def download_default_config(config_dir: Path, config_path: Path) -> bool:
     """

@@ -24,7 +24,7 @@ This recipe demonstrates TJBot's speech-to-text capabilities by having it listen
 ## Configure
 
 > [!CAUTION]
-> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 To use this recipe, you need to create a free Google Cloud project. You will turn on the Cloud Translation API for that project, then download a special credentials file that lets TJBot use it.
 

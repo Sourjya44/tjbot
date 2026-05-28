@@ -28,7 +28,7 @@ After each round, TJBot shines its light orange and invites you to play again.
 ## Configure
 
 > [!CAUTION]
-> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 ## Run
 

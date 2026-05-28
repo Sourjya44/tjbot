@@ -32,7 +32,7 @@ TJBot will choose an action at random and ask you to perform that action. It use
 ## Configure
 
 > [!CAUTION]
-> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 ### Prepare your recipe's configuration
 

@@ -30,7 +30,7 @@ You can configure your TJBot to use one of the following computer vision backend
 ## Configure
 
 > [!CAUTION]
-> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 ## Run
 

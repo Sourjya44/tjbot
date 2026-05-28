@@ -45,7 +45,7 @@ show_usage() {
     echo "TJBot Launcher"
     echo ""
     echo "Usage:"
-    echo "  tjbot bootstrap           Run the bootstrap setup script"
+    echo "  tjbot setup               Run the TJBot setup script"
     echo "  tjbot config [args]       Configure TJBot credentials and settings"
     echo "  tjbot run                 List available recipes"
     echo "  tjbot run <recipe>        Run a specific recipe"
@@ -440,7 +440,7 @@ TODO: Describe the recipe's functionality and how it uses TJBot capabilities.
 ## Configure
 
 > [!CAUTION]
-> Make sure you have configured your Raspberry Pi for TJBot by following the [bootstrap instructions](https://github.com/ibmtjbot/tjbot/tree/master/bootstrap).
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
 
 TODO: Describe any recipe-specific configuration that users need to do before running. For example, if the recipe requires API keys or custom settings, explain how to set those up here.
 
@@ -811,10 +811,10 @@ run_recipe() {
 
 # Main command routing
 case "$1" in
-    bootstrap)
-        echo -e "${GREEN}Running TJBot bootstrap...${NC}"
+    setup)
+        echo -e "${GREEN}Running TJBot setup...${NC}"
         cd "$TJBOT_ROOT/bin" || exit 1
-        sudo "$SHELL" ./bootstrap
+        sudo "$SHELL" ./tjbot_setup
         ;;
 
     config)
