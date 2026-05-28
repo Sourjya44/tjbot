@@ -2,14 +2,14 @@
   "name": "tests",
   "description": "TJBot hardware tests",
   "version": "3.0.0",
-  "author": "TJBot <https://ibmtjbot.github.io>",
+  "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "bugs": {
-    "url": "https://github.com/ibmtjbot/tjbot/issues"
+    "url": "https://github.com/tjbot-ce/tjbot/issues"
   },
   "dependencies": {
     "tjbot": "latest"
   },
-  "homepage": "https://github.com/ibmtjbot/tjbot#readme",
+  "homepage": "https://github.com/tjbot-ce/tjbot#readme",
   "keywords": [
     "TJBot"
   ],
@@ -17,6 +17,6 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ibmtjbot/tjbot.git"
+    "url": "git+https://github.com/tjbot-ce/tjbot.git"
   }
 }
