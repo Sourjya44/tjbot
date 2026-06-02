@@ -147,7 +147,6 @@ PACKAGES=(
     libgpiod-dev
     liblgpio-dev
     rpicam-apps-lite
-    tidy
 )
 
 echo "Updating apt repositories [apt-get update]"
