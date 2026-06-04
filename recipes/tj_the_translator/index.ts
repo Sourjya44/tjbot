@@ -66,7 +66,9 @@ function resolveLanguageCode(language: string): string {
         return mapped;
     }
 
-    throw new Error(`Unsupported language "${language}". Please use a supported language name like "es" or "japanese".`);
+    throw new Error(
+        `Unsupported language "${language}". Please use a supported language name like "es" or "japanese".`
+    );
 }
 
 function findGoogleCredentialsPath(): string | undefined {
@@ -96,9 +98,7 @@ const targetLanguageCode = resolveLanguageCode(targetLanguageLabel);
 const googleCredentialsPath = findGoogleCredentialsPath();
 
 const translationClient = new TranslationServiceClient(
-    googleCredentialsPath
-        ? { keyFilename: googleCredentialsPath }
-        : {},
+    googleCredentialsPath ? { keyFilename: googleCredentialsPath } : {}
 );
 const googleProjectId = await translationClient.getProjectId();
 
@@ -128,13 +128,13 @@ const tj = await TJBot.getInstance().initialize({
         led: true,
         microphone: true,
         speaker: true,
-    }
+    },
 });
 
 // ready!
-console.log("=====================");
-console.log("  TJ THE TRANSLATOR  ");
-console.log("=====================");
+console.log('=====================');
+console.log('  TJ THE TRANSLATOR  ');
+console.log('=====================');
 
 console.log('TJBot is ready for translation!');
 console.log("Say 'stop' or press Ctrl-C to exit this recipe.");

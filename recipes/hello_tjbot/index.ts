@@ -18,8 +18,8 @@ import TJBot from 'tjbot';
 
 const tj = await TJBot.getInstance().initialize({
     hardware: {
-        speaker: true
-    }
+        speaker: true,
+    },
 });
 
 /* Customization 1: Change the greeting message */

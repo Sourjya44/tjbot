@@ -57,6 +57,22 @@ show_usage() {
     echo ""
 }
 
+# Prompt helper for y/n capability flags
+prompt_yes_no() {
+    local prompt_text="$1"
+    local default_value="$2"
+    local reply
+
+    read -r -p "$prompt_text" reply
+    reply="${reply:-$default_value}"
+
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
 # Function to get current version from git tag
 get_current_version() {
     if [ ! -d "$TJBOT_REPO/.git" ]; then
@@ -297,22 +313,6 @@ validate_recipe_dir() {
     return 0
 }
 
-# Prompt helper for y/n capability flags
-prompt_yes_no() {
-    local prompt_text="$1"
-    local default_value="$2"
-    local reply
-
-    read -r -p "$prompt_text" reply
-    reply="${reply:-$default_value}"
-
-    if [[ "$reply" =~ ^[Yy]$ ]]; then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-
 # Function to list recipes
 list_recipes() {
     echo -e "${BLUE}Available TJBot Recipes:${NC}"
@@ -377,8 +377,28 @@ description = "Install recipe dependencies"
 depends = ["install"]
 run = "npm start"
 description = "Run recipe"
+
+[tasks.lint]
+description = "Run lint checks"
+run = "npm run lint"
+
+[tasks.lint-fix]
+description = "Run lint auto-fixes"
+run = "npm run lint:fix"
+
+[tasks.format]
+description = "Format code"
+run = "npm run format"
+
+[tasks.format-check]
+description = "Check code formatting"
+run = "npm run format:check"
+
+[tasks.typecheck]
+description = "Run static type checking"
+run = "npm run typecheck"
 EOF
-    else
+    elif [ "$language" = "python" ]; then
         cat > "$recipe_dir/mise.toml" << 'EOF'
 [tools]
 python = "3.11"
@@ -386,6 +406,26 @@ python = "3.11"
 [tasks.start]
 run = "uv run main.py"
 description = "Run recipe"
+
+[tasks.lint]
+description = "Run lint checks"
+run = "uv run ruff check ."
+
+[tasks.lint-fix]
+description = "Run lint auto-fixes"
+run = "uv run ruff check . --fix"
+
+[tasks.format]
+description = "Format code"
+run = "uv run ruff format ."
+
+[tasks.format-check]
+description = "Check code formatting"
+run = "uv run ruff format . --check"
+
+[tasks.typecheck]
+description = "Run static type checking"
+run = "uv run mypy ."
 EOF
     fi
 }
@@ -517,24 +557,54 @@ write_language_starters() {
     local speak="${10}"
     local wave="${11}"
 
+    local recipe_slug="$(basename "$recipe_dir")"
+
     if [ "$language" = "typescript" ]; then
-        # Build hardware config based on capabilities
-        local hardware_lines=""
-        [ "$listen" = "true" ] && hardware_lines+="        microphone: true,\n"
-        [ "$see" = "true" ] && hardware_lines+="        camera: true,\n"
-        [ "$shine" = "true" ] && hardware_lines+="        led: true,\n"
-        [ "$speak" = "true" ] && hardware_lines+="        speaker: true,\n"
-        [ "$wave" = "true" ] && hardware_lines+="        servo: true,\n"
+        write_ts_index_ts "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$listen" "$see" "$shine" "$speak" "$wave"
+        write_ts_package_json "$recipe_dir" "$recipe_slug" "$description" "$author" "$license"
+        write_ts_tsconfig_json "$recipe_dir"
+        write_ts_prettier_config "$recipe_dir"
+        write_ts_eslint_config "$recipe_dir"
 
-        # Remove trailing comma from last line
-        hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
+        echo -e "${BLUE}Installing dependencies...${NC}"
+        (cd "$recipe_dir" && npm install --save tjbot)
+        (cd "$recipe_dir" && npm install --save-dev @eslint/js eslint globals jiti prettier tsx typescript typescript-eslint)
 
-        local file_ext="ts"
-        local start_script="tsx index.ts"
-        local recipe_slug
-        recipe_slug="$(basename "$recipe_dir")"
+    elif [ "$language" = "python" ]; then
+        write_py_main_py "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$listen" "$see" "$shine" "$speak" "$wave"
+        write_py_pyproject_toml "$recipe_dir" "$recipe_slug" "$description"
 
-        cat > "$recipe_dir/index.$file_ext" << EOF
+        echo -e "${BLUE}Installing dependencies...${NC}"
+        (cd "$recipe_dir" && uv add --dev ruff mypy)
+        (cd "$recipe_dir" && uv sync)
+    fi
+}
+
+# Write starter index.ts for TypeScript recipes
+write_ts_index_ts() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+    local listen="$6"
+    local see="$7"
+    local shine="$8"
+    local speak="$9"
+    local wave="${10}"
+
+    # Build hardware config based on capabilities
+    local hardware_lines=""
+    [ "$listen" = "true" ] && hardware_lines+="        microphone: true,\n"
+    [ "$see" = "true" ] && hardware_lines+="        camera: true,\n"
+    [ "$shine" = "true" ] && hardware_lines+="        led: true,\n"
+    [ "$speak" = "true" ] && hardware_lines+="        speaker: true,\n"
+    [ "$wave" = "true" ] && hardware_lines+="        servo: true,\n"
+
+    # Remove trailing comma from last line
+    hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
+
+    cat > "$recipe_dir/index.ts" << EOF
 /**
  * $recipe_name
  * Author: $author
@@ -545,14 +615,22 @@ import TJBot from 'tjbot';
 const tj = await TJBot.getInstance().initialize({
     hardware: {
 ${hardware_lines}
-    }
+    },
 });
 
 // Add your recipe code here!
-
 EOF
+}
 
-        cat > "$recipe_dir/package.json" << EOF
+# Write starter package.json for TypeScript recipes
+write_ts_package_json() {
+    local recipe_dir="$1"
+    local recipe_slug="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+
+cat > "$recipe_dir/package.json" << EOF
 {
     "name": "$recipe_slug",
     "version": "1.0.0",
@@ -560,25 +638,25 @@ EOF
     "license": "$license",
     "author": "$author",
     "type": "module",
-    "main": "index.$file_ext",
+    "main": "index.ts",
     "scripts": {
         "start": "tsx index.ts",
+        "format": "prettier --write \"./**/*.{js,ts}\"",
+        "format:check": "prettier --check \"./**/*.{js,ts}\"",
         "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
         "typecheck": "tsc --noEmit",
         "test": "echo \"Error: no test specified\" && exit 1"
     }
 }
 EOF
+}
 
-        echo -e "${BLUE}Installing dependencies...${NC}"
-        (cd "$recipe_dir" && npm install tjbot)
+# Write starter tsconfig.json for TypeScript recipes
+write_ts_tsconfig_json() {
+    local recipe_dir="$1"
 
-        if [ "$language" = "typescript" ]; then
-            (cd "$recipe_dir" && npm install --save-dev @eslint/js eslint globals tsx typescript typescript-eslint)
-        fi
-
-        if [ "$language" = "typescript" ]; then
-            cat > "$recipe_dir/tsconfig.json" << 'EOF'
+    cat > "$recipe_dir/tsconfig.json" << 'EOF'
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -599,30 +677,119 @@ EOF
   "exclude": ["node_modules", "dist"]
 }
 EOF
-        fi
-    else
-        cat > "$recipe_dir/main.py" << 'EOF'
+}
+
+# Write starter Prettier config for TypeScript recipes
+write_ts_prettier_config() {
+    local recipe_dir="$1"
+
+    cat > "$recipe_dir/.prettierrc" << 'EOF'
+{
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 120,
+    "tabWidth": 4,
+    "arrowParens": "always"
+}
+EOF
+
+    cat > "$recipe_dir/.prettierignore" << 'EOF'
+node_modules/
+dist/
+eslint.config.ts
+package-lock.json
+EOF
+}
+
+write_ts_eslint_config() {
+    local recipe_dir="$1"
+
+    cat > "$recipe_dir/eslint.config.ts" << 'EOF'
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import { defineConfig } from "eslint/config";
+
+export default defineConfig([
+  { files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
+  tseslint.configs.recommended,
+]);
+EOF
+}
+
+# Write starter main.py for Python recipes
+write_py_main_py() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+    local listen="$6"
+    local see="$7"
+    local shine="$8"
+    local speak="$9"
+    local wave="${10}"
+
+    # Build hardware config based on capabilities
+    local hardware_lines=""
+    [ "$listen" = "true" ] && hardware_lines+="            \"microphone\": True,\n"
+    [ "$see" = "true" ] && hardware_lines+="            \"camera\": True,\n"
+    [ "$shine" = "true" ] && hardware_lines+="            \"led\": True,\n"
+    [ "$speak" = "true" ] && hardware_lines+="            \"speaker\": True,\n"
+    [ "$wave" = "true" ] && hardware_lines+="            \"servo\": True,\n"
+
+    # Remove trailing comma from last line
+    hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
+
+    cat > "$recipe_dir/main.py" << EOF
+# ${recipe_name}
+# Author: $author
+
+from tjbot import TJBot
+
+tj = TJBot(
+    {
+        "hardware": {
+${hardware_lines}
+        }
+    }
+)
+
+
 def main():
+    # Add your recipe code here!
     print("Hello from TJBot recipe!")
 
 
 if __name__ == "__main__":
     main()
 EOF
+}
 
-        cat > "$recipe_dir/pyproject.toml" << EOF
+# Write starter pyproject.toml for Python recipes
+write_py_pyproject_toml() {
+    local recipe_dir="$1"
+    local recipe_slug="$2"
+    local description="$3"
+
+    cat > "$recipe_dir/pyproject.toml" << EOF
 [project]
 name = "$recipe_slug"
 version = "1.0.0"
-description = "A TJBot recipe"
+description = "$description"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "tjbot"
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
 EOF
-    fi
 }
 
 # Function to create a recipe scaffold
@@ -648,7 +815,7 @@ create_recipe() {
 
     # Strip any directory prefix (e.g. "recipes/test-recipe" -> "test-recipe")
     recipe_folder="$(basename "$recipe_folder")"
-    recipe_dir="$TJBOT_ROOT/recipes/$recipe_folder"
+    recipe_dir="$PWD/$recipe_folder"
     if [ -e "$recipe_dir" ]; then
         echo -e "${RED}Error: Recipe already exists at $recipe_dir${NC}"
         exit 1
@@ -691,11 +858,11 @@ create_recipe() {
 
     echo ""
     echo "Required capabilities:"
-    listen=$(prompt_yes_no "- listen (microphone + STT) (y/n) [n]: " "n")
-    see=$(prompt_yes_no "- see (camera + vision) (y/n) [n]: " "n")
-    shine=$(prompt_yes_no "- shine (LED) (y/n) [n]: " "n")
-    speak=$(prompt_yes_no "- speak (speaker + TTS) (y/n) [n]: " "n")
-    wave=$(prompt_yes_no "- wave (servo) (y/n) [n]: " "n")
+    listen=$(prompt_yes_no "- listen (microphone + STT) (y/n) [y]: " "y")
+    see=$(prompt_yes_no "- see (camera + vision) (y/n) [y]: " "y")
+    shine=$(prompt_yes_no "- shine (LED) (y/n) [y]: " "y")
+    speak=$(prompt_yes_no "- speak (speaker + TTS) (y/n) [y]: " "y")
+    wave=$(prompt_yes_no "- wave (servo) (y/n) [y]: " "y")
 
     mkdir -p "$recipe_dir"
 

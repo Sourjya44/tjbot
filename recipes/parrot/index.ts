@@ -16,13 +16,12 @@
 
 import TJBot from 'tjbot';
 
-
 // Instantiate our TJBot!
 const tj = await TJBot.getInstance().initialize({
     hardware: {
         microphone: true,
-        speaker: true
-    }
+        speaker: true,
+    },
 });
 
 console.log('================');

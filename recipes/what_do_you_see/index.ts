@@ -16,9 +16,9 @@
 
 import TJBot from 'tjbot';
 
-console.log("====================");
-console.log("  WHAT DO YOU SEE?  ");
-console.log("====================");
+console.log('====================');
+console.log('  WHAT DO YOU SEE?  ');
+console.log('====================');
 
 console.log('TJBot is ready to play!');
 console.log(`Ask me what I see by saying "what do you see" and I will let you know!`);
@@ -31,7 +31,7 @@ const tj = await TJBot.getInstance().initialize({
         led: true,
         microphone: true,
         speaker: true,
-    }
+    },
 });
 
 process.on('SIGINT', () => {
@@ -149,7 +149,7 @@ while (true) {
         } else {
             // print out a list of seen objects to the console
             console.log('I see the following objects:');
-            objects.forEach(obj => {
+            objects.forEach((obj) => {
                 console.log(`- ${obj.label} (confidence: ${(obj.confidence * 100).toFixed(2)}%)`);
             });
 
@@ -167,9 +167,13 @@ while (true) {
             if (newCount === 1) {
                 await tj.speak(`I see ${article} ${obj.label}! That's really cool!`);
             } else if (newCount > 10) {
-                await tj.speak(`Hey, I've seen ${article} ${obj.label} more than ten times already! Show me something new!`);
+                await tj.speak(
+                    `Hey, I've seen ${article} ${obj.label} more than ten times already! Show me something new!`
+                );
             } else {
-                await tj.speak(`I see ${article} ${obj.label} again! That's the ${toOrdinal(newCount)} time you've shown me this!`);
+                await tj.speak(
+                    `I see ${article} ${obj.label} again! That's the ${toOrdinal(newCount)} time you've shown me this!`
+                );
             }
         }
     } else {

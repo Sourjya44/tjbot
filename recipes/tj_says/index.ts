@@ -34,7 +34,7 @@ const tj = await TJBot.getInstance().initialize({
         microphone: true,
         servo: true,
         speaker: true,
-    }
+    },
 });
 
 // gracefully handle Ctrl-C
@@ -50,7 +50,7 @@ console.log('===========');
 
 console.log("Let's play TJ Says!");
 console.log();
-console.log("Press Ctrl-C to exit this recipe.");
+console.log('Press Ctrl-C to exit this recipe.');
 
 // gracefully handle Ctrl-C
 process.on('SIGINT', () => {
@@ -61,11 +61,11 @@ process.on('SIGINT', () => {
 const instructions = [
     "Let's play T J Says!",
     "It's just like Simon Says.",
-    "I will call out an action and you have to do it.",
-    "But pay close attention.",
+    'I will call out an action and you have to do it.',
+    'But pay close attention.',
     "If I don't say 'T J Says' first, then don't do what I say!",
-    "Are you ready?",
-    "Let's play!"
+    'Are you ready?',
+    "Let's play!",
 ];
 
 // speak the instructions
@@ -108,7 +108,7 @@ while (true) {
     if (!sayTJ) {
         await tj.lowerArm();
         await tj.speak(`Did you ${action}?`);
-        await tj.speak("T J didn't say!")
+        await tj.speak("T J didn't say!");
         await tj.raiseArm();
         await tj.sleep(1);
         await tj.speak("Let's play again!");

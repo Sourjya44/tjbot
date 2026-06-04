@@ -38,7 +38,7 @@ const tj = await TJBot.getInstance().initialize({
         led: true,
         microphone: true,
         speaker: true,
-    }
+    },
 });
 
 // full list of colors that TJ recognizes, e.g. ['red', 'green', 'blue']
@@ -53,7 +53,9 @@ console.log('===============');
 
 console.log('TJBot is ready to shine!');
 console.log(`I understand lots of colors! Here are a few: ${randomColors.join(', ')}`);
-console.log("You can tell me to shine my light a different color by saying 'turn the light red' or 'change the color to green' or 'turn the led off'.");
+console.log(
+    "You can tell me to shine my light a different color by saying 'turn the light red' or 'change the color to green' or 'turn the led off'."
+);
 console.log("You can also say 'disco party' to have a disco party!");
 console.log("Say 'stop' or press Ctrl-C to exit this recipe.");
 
@@ -79,18 +81,18 @@ while (true) {
         process.exit(0);
     }
 
-    const containsCommand = normalizedMsg.indexOf('turn') >= 0
-        || normalizedMsg.indexOf('change') >= 0
-        || normalizedMsg.indexOf('set') >= 0
-        || normalizedMsg.indexOf('make') >= 0;
+    const containsCommand =
+        normalizedMsg.indexOf('turn') >= 0 ||
+        normalizedMsg.indexOf('change') >= 0 ||
+        normalizedMsg.indexOf('set') >= 0 ||
+        normalizedMsg.indexOf('make') >= 0;
     const containsShine = normalizedMsg.indexOf('shine') >= 0;
-    const containsLight = normalizedMsg.indexOf('light') >= 0
-        || normalizedMsg.indexOf('led') >= 0
-        || normalizedMsg.indexOf('color') >= 0;
+    const containsLight =
+        normalizedMsg.indexOf('light') >= 0 || normalizedMsg.indexOf('led') >= 0 || normalizedMsg.indexOf('color') >= 0;
     const containsDisco = normalizedMsg.indexOf('disco') >= 0;
     const containsParty = normalizedMsg.indexOf('party') >= 0;
 
-    if (containsCommand && containsLight || containsShine) {
+    if ((containsCommand && containsLight) || containsShine) {
         // check for 'on' or 'off' first (exact word match)
         if (normalizedMsg.indexOf('off') >= 0) {
             console.log('Turning the light off');
@@ -106,7 +108,7 @@ while (true) {
             // try progressively longer word combinations (to match multi-word colors like "dark red")
             for (let len = 2; len >= 1; len--) {
                 for (let i = 0; i <= words.length - len; i++) {
-                    const candidate = words.slice(i, i + len).join('');  // remove spaces
+                    const candidate = words.slice(i, i + len).join(''); // remove spaces
                     if (tjColors.includes(candidate)) {
                         console.log(`Turning the light ${candidate}`);
                         tj.shine(candidate);

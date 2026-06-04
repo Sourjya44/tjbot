@@ -48,8 +48,8 @@ const tj = await TJBot.getInstance().initialize({
     hardware: {
         led: true,
         microphone: true,
-        speaker: true
-    }
+        speaker: true,
+    },
 });
 
 // ready!

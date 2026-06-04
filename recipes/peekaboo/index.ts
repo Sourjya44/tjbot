@@ -22,7 +22,7 @@ const tj = await TJBot.getInstance().initialize({
         led: true,
         speaker: true,
         servo: true,
-    }
+    },
 });
 
 const FACE_POLL_INTERVAL_MS = 150;
@@ -42,7 +42,7 @@ const SEARCHING_REMINDERS = [
     'Where are you hiding?',
     'I am still looking for you.',
     'I cannot find you yet.',
-    'Are you still there? I don\'t see you!',
+    "Are you still there? I don't see you!",
     'Peekaboo player, where did you go?',
 ];
 
@@ -59,10 +59,7 @@ type WaitForFaceOptions = {
     reminderPhrases?: string[];
 };
 
-const waitForFacePresence = async (
-    targetPresent: boolean,
-    options: WaitForFaceOptions = {}
-): Promise<void> => {
+const waitForFacePresence = async (targetPresent: boolean, options: WaitForFaceOptions = {}): Promise<void> => {
     let nextPulseAt = Date.now();
     let nextReminderAt = Date.now() + (options.reminderIntervalMs ?? SEARCH_REMINDER_INTERVAL_MS);
 
@@ -119,14 +116,14 @@ const runPeekaboo = async (): Promise<void> => {
                 console.log('State: WAITING_TO_START (waiting for face to show)');
                 await tj.raiseArm();
                 await tj.speak("Let's play a game of peekaboo!");
-                await tj.speak("Show me your face to begin.");
+                await tj.speak('Show me your face to begin.');
                 await waitForFacePresence(true, {
                     pulseColor: 'yellow',
                 });
                 await tj.shine('green');
-                await tj.speak("I see you!");
+                await tj.speak('I see you!');
                 await tj.speak("Let's begin the game.");
-                await tj.speak("Hide your face!");
+                await tj.speak('Hide your face!');
                 state = GameState.PLAYER_HIDES;
                 break;
 
@@ -160,7 +157,7 @@ const runPeekaboo = async (): Promise<void> => {
                 await tj.raiseArm();
                 await tj.shine('orange');
                 await tj.speak("Let's play again.");
-                await tj.speak("Hide your face!");
+                await tj.speak('Hide your face!');
                 await waitForFacePresence(false);
                 state = GameState.SEARCHING;
                 break;
@@ -173,7 +170,7 @@ console.log('  PEEKABOO  ');
 console.log('============');
 
 console.log("Let's play Peekaboo!");
-console.log("Press Ctrl-C to exit this recipe.");
+console.log('Press Ctrl-C to exit this recipe.');
 
 try {
     await runPeekaboo();
