@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import TJBot from 'tjbot';
+import TJBot from 'tjbot-ce';
 
 // read recipe-specific config
 const config = TJBot.getRecipeConfig();

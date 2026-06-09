@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import TJBot from 'tjbot';
+import TJBot from 'tjbot-ce';
 
 // let's have a disco party!
 function discoParty(tj: TJBot, colors: string[]) {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import TJBot from 'tjbot';
+import TJBot from 'tjbot-ce';
 
 const tj = await TJBot.getInstance().initialize({
     hardware: {

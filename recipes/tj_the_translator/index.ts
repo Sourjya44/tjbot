@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import TJBot from 'tjbot';
+import TJBot from 'tjbot-ce';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

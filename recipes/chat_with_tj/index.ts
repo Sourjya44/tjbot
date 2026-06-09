@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import TJBot from 'tjbot';
+import TJBot from 'tjbot-ce';
 import { WatsonXAI } from '@ibm-cloud/watsonx-ai';
 import { IamAuthenticator } from 'ibm-cloud-sdk-core';
 import { inspect } from 'node:util';

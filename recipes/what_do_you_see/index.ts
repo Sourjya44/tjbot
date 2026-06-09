@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import TJBot from 'tjbot';
+import TJBot from 'tjbot-ce';
 
 console.log('====================');
 console.log('  WHAT DO YOU SEE?  ');
