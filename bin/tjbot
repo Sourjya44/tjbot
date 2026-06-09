@@ -455,7 +455,7 @@ write_recipe_readme() {
 
     if [ "$language" = "typescript" ]; then
         language_shields="[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)\n"
-        language_shields+=" [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)"
+        language_shields+="[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)\n"
     elif [ "$language" = "python" ]; then
         language_shields="[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)\n"
     fi
@@ -493,7 +493,7 @@ You can run this recipe using the \`tjbot\` command or you can run it manually u
 Open a Terminal and run the following command from anywhere on your system:
 
 \`\`\`sh
-tjbot run $recipe_slug
+tjbot run $recipe_dir/$recipe_slug
 \`\`\`
 
 > [!NOTE]
@@ -502,12 +502,12 @@ tjbot run $recipe_slug
 You should see the following output:
 
 \`\`\`sh
-$ tjbot run $recipe_slug
+$ tjbot run $recipe_dir
 
 > $recipe_slug@3.0.0 start
 > tsx index.ts
 
-TODO: ADD SAMPLE CONSOLE OUTPUT HERE
+...
 \`\`\`
 
 ### Run manually using \`mise\`
@@ -515,7 +515,7 @@ TODO: ADD SAMPLE CONSOLE OUTPUT HERE
 Open a Terminal, navigate to this recipe's directory, and run using \`mise\`.
 
 \`\`\`sh
-cd ~/.tjbot/recipes/$recipe_slug
+cd $recipe_dir
 mise run start
 \`\`\`
 
@@ -619,6 +619,7 @@ ${hardware_lines}
 });
 
 // Add your recipe code here!
+console.log('Hello from TJBot!');
 EOF
 }
 
@@ -759,7 +760,7 @@ ${hardware_lines}
 
 def main():
     # Add your recipe code here!
-    print("Hello from TJBot recipe!")
+    print("Hello from TJBot!")
 
 
 if __name__ == "__main__":
