@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@ibm-cloud/watsonx-ai": "^1.7.9",
-    "tjbot": "latest"
+    "tjbot-ce": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

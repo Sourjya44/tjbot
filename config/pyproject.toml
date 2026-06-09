@@ -1,13 +1,13 @@
 [project]
-name = "config"
+name = "tjbot-config"
 version = "1.0.0"
 description = "Interactive configuration tool for TJBot"
 requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "TJBot Project Contributors"}
+    {name = "TJBot Community Edition <https://tjbot-ce.github.io>"}
 ]
-keywords = ["tjbot", "raspberry-pi", "watson", "ai", "robotics", "configuration"]
+keywords = ["tjbot", "raspberry-pi", "ai", "robotics"]
 
 dependencies = [
     "inquirer>=3.1.0",

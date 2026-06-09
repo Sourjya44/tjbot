@@ -7,7 +7,7 @@
     "url": "https://github.com/tjbot-ce/tjbot/issues"
   },
   "dependencies": {
-    "tjbot": "latest"
+    "tjbot-ce": "latest"
   },
   "homepage": "https://github.com/tjbot-ce/tjbot#readme",
   "keywords": [

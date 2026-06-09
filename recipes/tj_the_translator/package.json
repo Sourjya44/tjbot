@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@google-cloud/translate": "^9.2.0",
-    "tjbot": "latest"
+    "tjbot-ce": "latest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
