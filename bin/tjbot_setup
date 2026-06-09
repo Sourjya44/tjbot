@@ -1,0 +1,400 @@
+#!/bin/bash
+#
+# tjbot_setup - script to set up a Raspberry Pi with TJBot software.
+#
+# Copyright 2017-2025 IBM Corp. All Rights Reserved.
+# Copyright 2026-present TJBot Contributors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ============================================================================
+# Helper function to check if a command exists for a given user
+# ============================================================================
+command_exists() {
+    local user="$1"
+    local cmd="$2"
+    sudo -H -u "$user" sh -lc "command -v $cmd" >/dev/null 2>&1
+}
+
+# Run a command as target user, ensuring uv is available in that shell.
+run_with_uv() {
+    local user="$1"
+    shift
+    sudo -H -u "$user" sh -lc '
+        if ! command -v uv >/dev/null 2>&1 && [ -f "$HOME/.local/bin/env" ]; then
+            . "$HOME/.local/bin/env" >/dev/null 2>&1
+        fi
+        UV_CMD=$(command -v uv 2>/dev/null || true)
+        [ -n "$UV_CMD" ] || exit 127
+        "$@"
+    ' sh "$@"
+}
+
+# ============================================================================
+# Make sure this is run as root
+# ============================================================================
+user=$(id -u)
+if [ "$user" -ne 0 ]; then
+    echo "This script requires root permissions. Please run this script with sudo."
+    exit
+fi
+
+# ============================================================================
+# ASCII art!
+# ============================================================================
+echo "  _   _ _           _                                        "
+echo " | | (_) |         | |  _                                    "
+echo " | |_ _| |__   ___ | |_(_)                                   "
+echo " | __| | '_ \ / _ \| __|                                     "
+echo " | |_| | |_) | (_) | |_ _                                    "
+echo "  \__| |_.__/ \___/ \__(_)                  _ _              "
+echo "    _/ |                                   (_) |             "
+echo "   |__/___  _ __ ___  _ __ ___  _   _ _ __  _| |_ _   _      "
+echo "  / __/ _ \| '_ ' _ \| '_ ' _ \| | | | '_ \| | __| | | |     "
+echo " | (_| (_) | | | | | | | | | | | |_| | | | | | |_| |_| |     "
+echo "  \___\___/|_| |_| |_|_| |_| |_|\__,_|_| |_|_|\__|\__, |     "
+echo "          | (_) | (_)                       | |    __/ |     "
+echo "   ___  __| |_| |_ _  ___  _ __     ___  ___| |_ _|___/_ __  "
+echo "  / _ \/ _' | | __| |/ _ \| '_ \   / __|/ _ \ __| | | | '_ \ "
+echo " |  __/ (_| | | |_| | (_) | | | |  \__ \  __/ |_| |_| | |_) |"
+echo "  \___|\__,_|_|\__|_|\___/|_| |_|  |___/\___|\__|\__,_| .__/ "
+echo "                                                      | |    "
+echo "                                                      |_|    "
+
+# ============================================================================
+# Intro message
+# ============================================================================
+echo ""
+echo "-----------------------------------------------------------------------"
+echo "Welcome! Let's set up your Raspberry Pi with the TJBot software."
+echo ""
+echo "Important: This script was designed for setting up a Raspberry Pi after"
+echo "a clean install of Raspbian. If you are running this script on a"
+echo "Raspberry Pi that you've used for other projects, please take a look at"
+echo "what this script does BEFORE running it to ensure you are comfortable"
+echo "with its actions."
+echo "-----------------------------------------------------------------------"
+
+# ============================================================================
+# Confirm running setup
+# ============================================================================
+read -r -p "Would you like to use this Raspberry Pi for TJBot? [Y/n] " choice </dev/tty
+case "$choice" in
+    "n" | "N")
+        echo "Cancelling TJBot software installation."
+        exit
+        ;;
+    *) ;;
+esac
+echo
+
+# ============================================================================
+# Test CPU architecture
+#   ARMv6 is not supported (RPi 1, Pi Zero, Compute Module 1)
+# ============================================================================
+echo ""
+
+CPUARCH=$(lscpu | grep Arch | cut -d ':' -f2 | awk '{$1=$1};1')
+if [ "$CPUARCH" = 'armv6l' ];
+   then
+      echo "🛑 ARMv6 is not supported for TJBot due to software availability"
+      echo "on this processor architecture. Please use another Raspberry Pi model."
+      exit 1
+else
+   echo "✓ $CPUARCH processor architecture supported."
+fi
+
+# ============================================================================
+# Test Raspbian version
+#   Raspbian 12 (Bookworm) or later is required
+# ============================================================================
+echo ""
+
+RASPBIAN_VERSION_ID=$(grep '^VERSION_ID=' /etc/os-release | cut -d '"' -f 2)
+RASPBIAN_CODENAME=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d '=' -f 2)
+if [ "$RASPBIAN_VERSION_ID" -lt 12 ]; then
+    echo "⚠️ It looks like your Raspberry Pi is running an older version"
+    echo "of Raspian. TJBot requires Raspian 12 (Bookworm) or later."
+    echo ""
+    read -r -p "Would you like to continue with setup? [Y/n] " choice </dev/tty
+    case "$choice" in
+        "n" | "N")
+            echo "Cancelling TJBot software installation."
+            exit
+            ;;
+        *) ;;
+    esac
+else
+   echo "✓ Raspian OS level supported: $RASPBIAN_VERSION_ID ($RASPBIAN_CODENAME)."
+fi
+
+# ============================================================================
+# Install additional apt packages
+# ============================================================================
+echo ""
+
+PACKAGES=(
+    libgpiod-dev
+    liblgpio-dev
+    rpicam-apps-lite
+)
+
+echo "Updating apt repositories [apt-get update]"
+apt-get update
+
+echo "Installing additional software packages: ${PACKAGES[*]}"
+apt-get install -y "${PACKAGES[@]}"
+
+# ============================================================================
+# Capture target user and home directory
+# ============================================================================
+TARGET_USER=${SUDO_USER:-$USER}
+TARGET_HOME=$(eval echo "~$TARGET_USER")
+TJBOT_DIR="$TARGET_HOME/.tjbot/tjbot"
+
+# ============================================================================
+# Install mise
+# ============================================================================
+echo ""
+echo "Installing mise..."
+
+if ! command_exists "$TARGET_USER" "mise"; then
+    echo "Installing mise for user $TARGET_USER..."
+    sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://mise.run | sh'
+    echo "✓ mise installed successfully"
+else
+    echo "✓ mise is already installed for $TARGET_USER"
+fi
+
+# ============================================================================
+# Install uv
+# ============================================================================
+echo ""
+echo "Installing uv..."
+
+if ! command_exists "$TARGET_USER" "uv"; then
+    echo "Installing uv for user $TARGET_USER..."
+    sudo -H -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
+fi
+
+# Best-effort status check for uv availability in target user's shell.
+if run_with_uv "$TARGET_USER" uv --version >/dev/null 2>&1; then
+    echo "✓ uv is available"
+else
+    echo "🛑 Failed to locate uv command for $TARGET_USER, please check your uv installation"
+    exit 1
+fi
+
+# ============================================================================
+# Install Node.js
+# ============================================================================
+echo ""
+
+# Get the first version in the list where the 10th column (LTS) is not "-"
+LATEST_NODE_LTS_VERSION=$(curl -sLSf https://nodejs.org/download/release/index.tab | \
+  awk '($10 != "-" && NR != 1) { print $1; exit }' | cut -d '.' -f 1 | cut -d 'v' -f 2)
+MIN_NODE_MAJOR="20"
+NEED_NODE_INSTALL=false
+
+if command_exists "$TARGET_USER" "node"; then
+    NODE_VERSION=$(node --version 2>&1)
+    NODE_MAJOR=$(node --version 2>&1 | cut -d '.' -f 1 | cut -d 'v' -f 2)
+    if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ]; then
+        echo "⚠️ Node.js $NODE_VERSION is currently installed. TJBot requires"
+        echo "v$MIN_NODE_MAJOR.x or later."
+
+        read -r -p "Would you like to update Node.js to $LATEST_NODE_LTS_VERSION? [Y/n] " choice </dev/tty
+        case "$choice" in
+            "" | "y" | "Y")
+                NEED_NODE_INSTALL=true
+                ;;
+            *)
+                echo "⚠️ TJBot recipes that require Javascript may not run properly with Node.js $NODE_VERSION."
+                ;;
+        esac
+    else
+        echo "✓ Node.js version $NODE_VERSION is installed."
+    fi
+else
+    echo "Node.js is not installed."
+    NEED_NODE_INSTALL=true
+fi
+
+if $NEED_NODE_INSTALL; then
+    curl -sLSf https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo -E bash -
+    apt install nodejs -y
+fi
+
+# ============================================================================
+# Clone TJBot repository
+# ============================================================================
+echo ""
+
+if [ ! -d "$TJBOT_DIR" ]; then
+    echo "Cloning TJBot project to $TJBOT_DIR"
+    sudo -u "$TARGET_USER" git clone https://github.com/tjbot-ce/tjbot.git "$TJBOT_DIR"
+else
+    echo "TJBot project already exists in $TJBOT_DIR, pulling latest changes"
+    sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" pull
+fi
+
+echo "Initializing TJBot submodules"
+sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" submodule update --init --recursive
+
+# ============================================================================
+# Add tjbot/bin to $PATH
+# ============================================================================
+echo ""
+
+PROFILE_FILE="$TARGET_HOME/.profile"
+if ! grep -Fq "$TJBOT_DIR/bin" "$PROFILE_FILE" 2>/dev/null; then
+    echo "Adding $TJBOT_DIR/bin to $TARGET_USER PATH in $PROFILE_FILE"
+    touch "$PROFILE_FILE"
+    printf "\n# Added by TJBot setup\nexport PATH=\"\$PATH:%s/bin\"\n" "$TJBOT_DIR" >> "$PROFILE_FILE"
+    chown "$TARGET_USER":"$TARGET_USER" "$PROFILE_FILE" 2>/dev/null || true
+fi
+
+# ============================================================================
+# RPi 3: blacklist audio kernel modules
+# ============================================================================
+RPI_MODEL=$(grep "^Model" /proc/cpuinfo | cut -d ':' -f2 | xargs)
+if [[ "$RPI_MODEL" == *"Raspberry Pi 3"* ]]; then
+    echo ""
+    echo "On Raspberry Pi 3 models, there is a known conflict between the LED "
+    echo "and the built-in audio jack. In order for the LED to work, we need to"
+    echo "disable certain kernel modules to avoid this conflict. If you have "
+    echo "plugged in a speaker via HDMI, USB, or Bluetooth, this is a safe "
+    echo "operation and you will be able to play sound and use the LED at the "
+    echo "same time. If you plan to use the built-in audio jack, we recommend "
+    echo "NOT disabling the sound kernel modules."
+    read -r -p "Enable or disable sound kernel modules? [DISABLE/enable] " choice </dev/tty
+    case "$choice" in
+        "" | "d" | "D" | "disable" | "DISABLE")
+            echo "Disabling the kernel modules for the built-in audio jack."
+            cat > "/etc/modprobe.d/tjbot-blacklist-snd.conf" << EOF
+blacklist snd_bcm2835
+EOF
+            ;;
+        "e" | "E" | "enable" | "ENABLE")
+            if [ -f /etc/modprobe.d/tjbot-blacklist-snd.conf ]; then
+                echo "Enabling the kernel modules for the built-in audio jack."
+                rm /etc/modprobe.d/tjbot-blacklist-snd.conf
+            fi
+            ;;
+        *)
+            echo "No changes will be made to the sound kernel modules. If you want to enable"
+            echo "or disable them, you can run this script again and choose the appropriate"
+            echo "option."
+        ;;
+    esac
+fi
+
+# ============================================================================
+# Create tjbot.toml configuration file
+# ============================================================================
+echo ""
+echo "Configuring TJBot hardware & software settings..."
+
+cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
+run_with_uv "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for tjbot config tool, please check your tjbot installation and uv setup" && exit 1)
+run_with_uv "$TARGET_USER" uv run config init || (echo "🛑 Failed to create default tjbot config, please check your tjbot installation and uv setup" && exit 1)
+
+# ============================================================================
+# Installation complete!
+# ============================================================================
+sleep_time=0.1
+echo ""
+echo ""
+echo "                           .yNNs\`                           "
+sleep $sleep_time
+echo "                           :hhhh-                           "
+sleep $sleep_time
+echo "/ssssssssssssssssssssssssssssssssssssssssssssssssssssssssss+"
+sleep $sleep_time
+echo "yNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMNmmmNMMMMMMMMMMMMMMMMMMMMMMNmmmMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMNd/\`\`\`.+NNMMMMMMMMMMMMMMMMNm+.\` \`/dNMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMNo     \`hMMMMMMMMMMMMMMMMMMy\`     oNMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMNm+.\`\`-sNMMMMMMMMMMMMMMMMMNNs-\`\`.+mNMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yMMMMMMMMMMMMMMNmmMMMMMMMMMMMMMMMMMMMMMMMMmmNMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "yNNNNNMMMMMMMMMMMMNNNNNNMMNNNNNNNNNNMMMMMMMMMMMMMMMMMMMNNNMy"
+sleep $sleep_time
+echo "-::::::::::::::::::::::::::::::::::::::::::::::::::::::::::-"
+sleep $sleep_time
+echo "                                                            "
+sleep $sleep_time
+echo "                     \`\`\`\`\`\`\`\`....--::::////++++ooossyyhhhhh/"
+sleep $sleep_time
+echo "//++ossssssyyyyhhddmmmmmmmmmmmmNNNNNMMNNNNNNMMMMMMMMMMMMMNNo"
+sleep $sleep_time
+echo "dMNMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+sleep $sleep_time
+echo "sMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMd"
+sleep $sleep_time
+echo "oNMMMMMMMMMMMMMMMMNNNNNNNNMMMMMMNNNNNmmmmmmmmmddhhhhyyyyssss"
+sleep $sleep_time
+echo "+Nmmmddhhhhyyyyssoo++++/////:::---....\`\`\`\`\`\`\`\`        "
+sleep $sleep_time
+echo ""
+sleep $sleep_time
+echo "-------------------------------------------------------------------"
+sleep $sleep_time
+echo "Setup complete. Your Raspberry Pi is now set up as a TJBot! 🤖"
+sleep $sleep_time
+echo "-------------------------------------------------------------------"
+echo ""
+
+# ============================================================================
+# Reboot
+# ============================================================================
+echo ""
+read -r -p "We recommend rebooting for all changes to take effect. Reboot? [Y/n] " choice </dev/tty
+case "$choice" in
+    "" | "y" | "Y")
+        echo "Rebooting."
+        reboot
+        ;;
+    *)
+        echo "Please reboot your Raspberry Pi for all changes to take effect."
+        ;;
+esac

@@ -1,0 +1,1072 @@
+#!/bin/bash
+#
+# tjbot - Command-line launcher for TJBot recipes, configuration, and utilities
+#
+# Copyright 2026-present TJBot Contributors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Get the script's real location (resolve symlinks, handle PATH invocation)
+# The parent of bin/ is always the tjbot directory
+TJBOT_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+TJBOT_REPO="$HOME/.tjbot/tjbot"
+TJBOT_STATE_DIR="$HOME/.tjbot"
+LAST_UPDATE_CHECK_FILE="$TJBOT_STATE_DIR/.last-update-check"
+GITHUB_API_ENDPOINT="https://api.github.com/repos/tjbot-ce/tjbot/releases/latest"
+UPDATE_CHECK_INTERVAL=$((30 * 24 * 60 * 60)) # 30 days in seconds
+
+# Determine if we're running the installed version or dev version
+IS_INSTALLED=false
+if [ "$TJBOT_ROOT" = "$TJBOT_REPO" ]; then
+    IS_INSTALLED=true
+else
+    echo -e "${GREEN}Running development version of TJBot${NC}"
+fi
+
+# Function to show usage
+show_usage() {
+    echo "TJBot Launcher"
+    echo ""
+    echo "Usage:"
+    echo "  tjbot setup               Run the TJBot setup script"
+    echo "  tjbot config [args]       Configure TJBot credentials and settings"
+    echo "  tjbot run                 List available recipes"
+    echo "  tjbot run <recipe>        Run a specific recipe"
+    echo "  tjbot create [recipe-name] Create a new recipe"
+    echo "  tjbot test                List available hardware tests"
+    echo "  tjbot test <hardware>     Run a specific hardware test"
+    echo "  tjbot update [tag]        Update TJBot to latest release (or specific tag)"
+    echo "  tjbot check-updates       Check for available updates"
+    echo ""
+}
+
+# Prompt helper for y/n capability flags
+prompt_yes_no() {
+    local prompt_text="$1"
+    local default_value="$2"
+    local reply
+
+    read -r -p "$prompt_text" reply
+    reply="${reply:-$default_value}"
+
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# Function to get current version from git tag
+get_current_version() {
+    if [ ! -d "$TJBOT_REPO/.git" ]; then
+        echo "unknown"
+        return 1
+    fi
+
+    local tag
+    tag=$(git -C "$TJBOT_REPO" describe --tags --abbrev=0 2>/dev/null)
+    if [ -z "$tag" ]; then
+        # Fallback to short commit hash if no tags exist
+        git -C "$TJBOT_REPO" rev-parse --short HEAD 2>/dev/null || echo "unknown"
+    else
+        echo "$tag"
+    fi
+}
+
+# Function to get latest release from GitHub
+check_latest_release() {
+    local response
+    local tag_name
+
+    # Use curl to fetch latest release info from GitHub API
+    # Add timeout to prevent hanging
+    response=$(curl -s --max-time 5 "$GITHUB_API_ENDPOINT" 2>/dev/null)
+
+    if [ -z "$response" ]; then
+        echo "ERROR_NO_NETWORK"
+        return 1
+    fi
+
+    # Check for 404 (Not Found) - no releases published yet
+    if echo "$response" | grep -q '"message":"Not Found"'; then
+        echo "ERROR_NO_RELEASES"
+        return 1
+    fi
+
+    # Extract tag_name using grep and sed (basic JSON parsing)
+    tag_name=$(echo "$response" | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    if [ -z "$tag_name" ]; then
+        echo "ERROR_NO_RELEASES"
+        return 1
+    fi
+
+    echo "$tag_name"
+}
+
+# Function to check if we should perform an update check
+should_check_for_updates() {
+    # Only check for updates if running the installed version
+    if [ "$IS_INSTALLED" != "true" ]; then
+        return 1
+    fi
+
+    # Don't check in CI/non-interactive environments
+    if [ ! -t 1 ] || [ -n "$CI" ] || [ -n "$TJBOT_SKIP_UPDATES" ]; then
+        return 1
+    fi
+
+    # Don't check if repo doesn't exist
+    if [ ! -d "$TJBOT_REPO/.git" ]; then
+        return 1
+    fi
+
+    # Create state directory if it doesn't exist
+    mkdir -p "$TJBOT_STATE_DIR"
+
+    # If file doesn't exist, we should check
+    if [ ! -f "$LAST_UPDATE_CHECK_FILE" ]; then
+        return 0
+    fi
+
+    # Check if enough time has passed
+    local last_check
+    local current_time
+    local time_diff
+
+    last_check=$(cat "$LAST_UPDATE_CHECK_FILE" 2>/dev/null)
+    current_time=$(date +%s)
+    time_diff=$((current_time - last_check))
+
+    if [ "$time_diff" -ge "$UPDATE_CHECK_INTERVAL" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Function to update the last check timestamp
+update_last_check_timestamp() {
+    mkdir -p "$TJBOT_STATE_DIR"
+    date +%s > "$LAST_UPDATE_CHECK_FILE"
+}
+
+# Function to checkout a specific release tag
+checkout_release() {
+    local tag="$1"
+
+    if [ -z "$tag" ]; then
+        echo -e "${RED}Error: No tag specified${NC}"
+        return 1
+    fi
+
+    if [ ! -d "$TJBOT_REPO/.git" ]; then
+        echo -e "${RED}Error: TJBot repository not found at $TJBOT_REPO${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}Fetching release tag $tag from GitHub...${NC}"
+    if ! git -C "$TJBOT_REPO" fetch origin "tag:$tag" 2>&1; then
+        echo -e "${RED}Error: Failed to fetch tag $tag${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}Checking out release $tag...${NC}"
+    if ! git -C "$TJBOT_REPO" checkout "tags/$tag" 2>&1; then
+        echo -e "${RED}Error: Failed to checkout tag $tag${NC}"
+        return 1
+    fi
+
+    echo -e "${GREEN}Successfully updated to $tag${NC}"
+    update_last_check_timestamp
+    return 0
+}
+
+# Function to offer update to user
+offer_update() {
+    local current_version="$1"
+    local latest_version="$2"
+
+    echo -e "${YELLOW}A new version of TJBot is available!${NC}"
+    echo "Current version: $current_version"
+    echo "Latest version:  $latest_version"
+    echo ""
+
+    read -p "Would you like to update now? (y/n) " -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if checkout_release "$latest_version"; then
+            echo ""
+            echo -e "${GREEN}TJBot has been updated successfully!${NC}"
+            read -p "Restart tjbot now? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                # Re-execute tjbot to load the updated version
+                exec "$0" "$@"
+            fi
+        fi
+    else
+        echo "Update deferred. You can update manually with: tjbot update"
+        update_last_check_timestamp
+    fi
+}
+
+# Function to check for updates (non-blocking, runs in background)
+check_update_auto() {
+    if ! should_check_for_updates; then
+        return
+    fi
+
+    # Run in subshell to avoid blocking
+    (
+        local current_version
+        local latest_version
+
+        current_version=$(get_current_version)
+        latest_version=$(check_latest_release)
+
+        # Only proceed if we got valid versions
+        if [ -z "$latest_version" ] || [ "$current_version" = "$latest_version" ]; then
+            update_last_check_timestamp
+            return
+        fi
+
+        # Offer the update to the user
+        offer_update "$current_version" "$latest_version"
+    ) &
+
+    # Don't wait for background process
+    disown 2>/dev/null || true
+}
+
+# Function to perform manual update
+do_update() {
+    local target_tag="$1"
+    local latest_version
+
+    if [ -z "$target_tag" ]; then
+        # No tag specified, get latest
+        echo -e "${BLUE}Checking for latest release...${NC}"
+        latest_version=$(check_latest_release)
+
+        if [ -z "$latest_version" ]; then
+            echo -e "${RED}Error: Could not check for latest release${NC}"
+            echo "Please check your internet connection and try again."
+            exit 1
+        fi
+
+        target_tag="$latest_version"
+    fi
+
+    local current_version
+    current_version=$(get_current_version)
+
+    echo "Current version: $current_version"
+    echo "Target version:  $target_tag"
+    echo ""
+
+    if checkout_release "$target_tag"; then
+        echo ""
+        echo -e "${GREEN}TJBot has been updated successfully!${NC}"
+    else
+        exit 1
+    fi
+}
+
+# Validate that a directory matches the new recipe contract
+validate_recipe_dir() {
+    local recipe_dir="$1"
+
+    if [ ! -d "$recipe_dir" ]; then
+        echo -e "${RED}Error: Recipe directory not found: $recipe_dir${NC}"
+        return 1
+    fi
+
+    if [ ! -f "$recipe_dir/mise.toml" ]; then
+        echo -e "${RED}Error: Missing mise.toml in $recipe_dir${NC}"
+        return 1
+    fi
+
+    if ! grep -q "\[tasks\.start\]" "$recipe_dir/mise.toml"; then
+        echo -e "${RED}Error: Missing [tasks.start] in $recipe_dir/mise.toml${NC}"
+        return 1
+    fi
+
+    return 0
+}
+
+# Function to list recipes
+list_recipes() {
+    echo -e "${BLUE}Available TJBot Recipes:${NC}"
+    echo ""
+
+    if [ ! -d "$TJBOT_ROOT/recipes" ]; then
+        echo -e "${RED}Error: recipes directory not found${NC}"
+        exit 1
+    fi
+
+    for recipe_dir in "$TJBOT_ROOT/recipes"/*; do
+        if [ -d "$recipe_dir" ]; then
+            recipe_name=$(basename "$recipe_dir")
+            recipe_type=""
+
+            if grep -Eq '^[[:space:]]*python[[:space:]]*=' "$recipe_dir/mise.toml" 2>/dev/null || \
+               grep -Eq '^[[:space:]]*run[[:space:]]*=[[:space:]]*".*uv run' "$recipe_dir/mise.toml" 2>/dev/null; then
+                recipe_type="${GREEN}[Python]${NC}"
+            elif grep -Eq '^[[:space:]]*run[[:space:]]*=[[:space:]]*".*(npm|tsx|ts-node|tsc|node)[[:space:]]' "$recipe_dir/mise.toml" 2>/dev/null || \
+                 grep -Eq '^[[:space:]]*node[[:space:]]*=' "$recipe_dir/mise.toml" 2>/dev/null; then
+                recipe_type="${BLUE}[TypeScript]${NC}"
+            fi
+
+            if [ -n "$recipe_type" ]; then
+                echo -e "  - $recipe_name $recipe_type"
+            else
+                echo -e "  - $recipe_name"
+            fi
+        fi
+    done
+    echo ""
+    echo "Run a recipe with: tjbot run <recipe>"
+}
+
+# Function to generate recipe.toml
+write_recipe_toml() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+
+    cat > "$recipe_dir/recipe.toml" << EOF
+# Recipe-specific configuration
+# Add any custom configuration options your recipe needs here.
+
+EOF
+}
+
+# Function to generate mise.toml
+write_mise_toml() {
+    local recipe_dir="$1"
+    local language="$2"
+
+    if [ "$language" = "typescript" ]; then
+        cat > "$recipe_dir/mise.toml" << 'EOF'
+[tasks.install]
+run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
+description = "Install recipe dependencies"
+
+[tasks.start]
+depends = ["install"]
+run = "npm start"
+description = "Run recipe"
+
+[tasks.lint]
+description = "Run lint checks"
+run = "npm run lint"
+
+[tasks.lint-fix]
+description = "Run lint auto-fixes"
+run = "npm run lint:fix"
+
+[tasks.format]
+description = "Format code"
+run = "npm run format"
+
+[tasks.format-check]
+description = "Check code formatting"
+run = "npm run format:check"
+
+[tasks.typecheck]
+description = "Run static type checking"
+run = "npm run typecheck"
+EOF
+    elif [ "$language" = "python" ]; then
+        cat > "$recipe_dir/mise.toml" << 'EOF'
+[tools]
+python = "3.11"
+
+[tasks.start]
+run = "uv run main.py"
+description = "Run recipe"
+
+[tasks.lint]
+description = "Run lint checks"
+run = "uv run ruff check ."
+
+[tasks.lint-fix]
+description = "Run lint auto-fixes"
+run = "uv run ruff check . --fix"
+
+[tasks.format]
+description = "Format code"
+run = "uv run ruff format ."
+
+[tasks.format-check]
+description = "Check code formatting"
+run = "uv run ruff format . --check"
+
+[tasks.typecheck]
+description = "Run static type checking"
+run = "uv run mypy ."
+EOF
+    fi
+}
+
+# Function to generate README.md
+write_recipe_readme() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local recipe_slug="$4"
+    local license="$5"
+    local listen="$6"
+    local see="$7"
+    local shine="$8"
+    local speak="$9"
+    local wave="${10}"
+    local language="${11}"
+
+    local hardware_shields=""
+    local language_shields=""
+
+    [ "$listen" = "true" ] && hardware_shields+="![Microphone](https://img.shields.io/badge/Hardware-Microphone-orange)\n"
+    [ "$see" = "true" ] && hardware_shields+="![Camera](https://img.shields.io/badge/Hardware-Camera-orange)\n"
+    [ "$shine" = "true" ] && hardware_shields+="![LED](https://img.shields.io/badge/Hardware-LED-orange)\n"
+    [ "$speak" = "true" ] && hardware_shields+="![Speaker](https://img.shields.io/badge/Hardware-Speaker-orange)\n"
+    [ "$wave" = "true" ] && hardware_shields+="![Servo](https://img.shields.io/badge/Hardware-Servo-orange)\n"
+
+    if [ "$language" = "typescript" ]; then
+        language_shields="[![Node.js](https://img.shields.io/badge/Node.js-20%2B-yellow)](https://nodejs.org/)\n"
+        language_shields+="[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://typescriptlang.org/)\n"
+    elif [ "$language" = "python" ]; then
+        language_shields="[![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab)](https://python.org/)\n"
+    fi
+
+    cat > "$recipe_dir/README.md" << EOF
+# $recipe_name
+
+> TODO: Add subtitle here
+
+TODO: Add description here
+
+## Requirements
+
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B+-cc342d)](https://www.raspberrypi.org/)
+$(echo -e "$hardware_shields")
+$(echo -e "$language_shields")
+
+## How It Works
+
+TODO: Describe the recipe's functionality and how it uses TJBot capabilities.
+
+## Configure
+
+> [!CAUTION]
+> Make sure you have configured your Raspberry Pi for TJBot by following the [setup instructions](https://github.com/tjbot-ce/tjbot/wiki/Bring-TJBot-to-Life).
+
+TODO: Describe any recipe-specific configuration that users need to do before running. For example, if the recipe requires API keys or custom settings, explain how to set those up here.
+
+## Run
+
+You can run this recipe using the \`tjbot\` command or you can run it manually using \`mise\`.
+
+### Run using \`tjbot run\`
+
+Open a Terminal and run the following command from anywhere on your system:
+
+\`\`\`sh
+tjbot run $recipe_dir/$recipe_slug
+\`\`\`
+
+> [!NOTE]
+> \`tjbot\` invokes \`mise\` under the hood, which will automatically install any required software dependencies before running the recipe.
+
+You should see the following output:
+
+\`\`\`sh
+$ tjbot run $recipe_dir
+
+> $recipe_slug@3.0.0 start
+> tsx index.ts
+
+...
+\`\`\`
+
+### Run manually using \`mise\`
+
+Open a Terminal, navigate to this recipe's directory, and run using \`mise\`.
+
+\`\`\`sh
+cd $recipe_dir
+mise run start
+\`\`\`
+
+## Customize
+
+### Customization 1: TODO
+
+TODO: Add instructions for how users can customize the recipe to change TJBot's behavior in an interesting way.
+
+### Customization 2: TODO
+
+TODO: Add instructions for how users can customize the recipe to change TJBot's behavior in an interesting way.
+
+## Troubleshoot
+
+If you are having difficulties in making this recipe work, please see the [troubleshooting guide](https://github.com/tjbot-ce/tjbot/wiki/Troubleshooting-TJBot).
+
+## Contribute
+
+If you would like to contribute to TJBot, please see the [contributor's guide](https://github.com/tjbot-ce/tjbot/wiki/Contributing-to-TJBot).
+
+## License
+
+This project is licensed under $license.
+EOF
+}
+
+# Function to generate language starter files
+write_language_starters() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+    local language="$6"
+    local listen="$7"
+    local see="$8"
+    local shine="$9"
+    local speak="${10}"
+    local wave="${11}"
+
+    local recipe_slug="$(basename "$recipe_dir")"
+
+    if [ "$language" = "typescript" ]; then
+        write_ts_index_ts "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$listen" "$see" "$shine" "$speak" "$wave"
+        write_ts_package_json "$recipe_dir" "$recipe_slug" "$description" "$author" "$license"
+        write_ts_tsconfig_json "$recipe_dir"
+        write_ts_prettier_config "$recipe_dir"
+        write_ts_eslint_config "$recipe_dir"
+
+        echo -e "${BLUE}Installing dependencies...${NC}"
+        (cd "$recipe_dir" && npm install --save tjbot-ce)
+        (cd "$recipe_dir" && npm install --save-dev @eslint/js eslint globals jiti prettier tsx typescript typescript-eslint)
+
+    elif [ "$language" = "python" ]; then
+        write_py_main_py "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$listen" "$see" "$shine" "$speak" "$wave"
+        write_py_pyproject_toml "$recipe_dir" "$recipe_slug" "$description"
+
+        echo -e "${BLUE}Installing dependencies...${NC}"
+        (cd "$recipe_dir" && uv add --dev ruff mypy)
+        (cd "$recipe_dir" && uv sync)
+    fi
+}
+
+# Write starter index.ts for TypeScript recipes
+write_ts_index_ts() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+    local listen="$6"
+    local see="$7"
+    local shine="$8"
+    local speak="$9"
+    local wave="${10}"
+
+    # Build hardware config based on capabilities
+    local hardware_lines=""
+    [ "$listen" = "true" ] && hardware_lines+="        microphone: true,\n"
+    [ "$see" = "true" ] && hardware_lines+="        camera: true,\n"
+    [ "$shine" = "true" ] && hardware_lines+="        led: true,\n"
+    [ "$speak" = "true" ] && hardware_lines+="        speaker: true,\n"
+    [ "$wave" = "true" ] && hardware_lines+="        servo: true,\n"
+
+    # Remove trailing comma from last line
+    hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
+
+    cat > "$recipe_dir/index.ts" << EOF
+/**
+ * $recipe_name
+ * Author: $author
+ */
+
+import TJBot from 'tjbot-ce';
+
+const tj = await TJBot.getInstance().initialize({
+    hardware: {
+${hardware_lines}
+    },
+});
+
+// Add your recipe code here!
+console.log('Hello from TJBot!');
+EOF
+}
+
+# Write starter package.json for TypeScript recipes
+write_ts_package_json() {
+    local recipe_dir="$1"
+    local recipe_slug="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+
+cat > "$recipe_dir/package.json" << EOF
+{
+    "name": "$recipe_slug",
+    "version": "1.0.0",
+    "description": "$description",
+    "license": "$license",
+    "author": "$author",
+    "type": "module",
+    "main": "index.ts",
+    "scripts": {
+        "start": "tsx index.ts",
+        "format": "prettier --write \"./**/*.{js,ts}\"",
+        "format:check": "prettier --check \"./**/*.{js,ts}\"",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "typecheck": "tsc --noEmit",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    }
+}
+EOF
+}
+
+# Write starter tsconfig.json for TypeScript recipes
+write_ts_tsconfig_json() {
+    local recipe_dir="$1"
+
+    cat > "$recipe_dir/tsconfig.json" << 'EOF'
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+EOF
+}
+
+# Write starter Prettier config for TypeScript recipes
+write_ts_prettier_config() {
+    local recipe_dir="$1"
+
+    cat > "$recipe_dir/.prettierrc" << 'EOF'
+{
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 120,
+    "tabWidth": 4,
+    "arrowParens": "always"
+}
+EOF
+
+    cat > "$recipe_dir/.prettierignore" << 'EOF'
+node_modules/
+dist/
+eslint.config.ts
+package-lock.json
+EOF
+}
+
+write_ts_eslint_config() {
+    local recipe_dir="$1"
+
+    cat > "$recipe_dir/eslint.config.ts" << 'EOF'
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import { defineConfig } from "eslint/config";
+
+export default defineConfig([
+  { files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
+  tseslint.configs.recommended,
+]);
+EOF
+}
+
+# Write starter main.py for Python recipes
+write_py_main_py() {
+    local recipe_dir="$1"
+    local recipe_name="$2"
+    local description="$3"
+    local author="$4"
+    local license="$5"
+    local listen="$6"
+    local see="$7"
+    local shine="$8"
+    local speak="$9"
+    local wave="${10}"
+
+    # Build hardware config based on capabilities
+    local hardware_lines=""
+    [ "$listen" = "true" ] && hardware_lines+="            \"microphone\": True,\n"
+    [ "$see" = "true" ] && hardware_lines+="            \"camera\": True,\n"
+    [ "$shine" = "true" ] && hardware_lines+="            \"led\": True,\n"
+    [ "$speak" = "true" ] && hardware_lines+="            \"speaker\": True,\n"
+    [ "$wave" = "true" ] && hardware_lines+="            \"servo\": True,\n"
+
+    # Remove trailing comma from last line
+    hardware_lines=$(echo -e "$hardware_lines" | sed '$ s/,$//')
+
+    cat > "$recipe_dir/main.py" << EOF
+# ${recipe_name}
+# Author: $author
+
+from tjbot import TJBot
+
+tj = TJBot(
+    {
+        "hardware": {
+${hardware_lines}
+        }
+    }
+)
+
+
+def main():
+    # Add your recipe code here!
+    print("Hello from TJBot!")
+
+
+if __name__ == "__main__":
+    main()
+EOF
+}
+
+# Write starter pyproject.toml for Python recipes
+write_py_pyproject_toml() {
+    local recipe_dir="$1"
+    local recipe_slug="$2"
+    local description="$3"
+
+    cat > "$recipe_dir/pyproject.toml" << EOF
+[project]
+name = "$recipe_slug"
+version = "1.0.0"
+description = "$description"
+requires-python = ">=3.11"
+dependencies = [
+    "tjbot-ce"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+EOF
+}
+
+# Function to create a recipe scaffold
+create_recipe() {
+    local recipe_folder="$1"
+    local recipe_name
+    local description
+    local author
+    local license
+    local language
+    local recipe_dir
+    local listen
+    local see
+    local shine
+    local speak
+    local wave
+
+    if [ -z "$recipe_folder" ]; then
+        echo -e "${RED}Error: Recipe name required${NC}"
+        echo "Usage: tjbot create <recipe-name>"
+        exit 1
+    fi
+
+    # Strip any directory prefix (e.g. "recipes/test-recipe" -> "test-recipe")
+    recipe_folder="$(basename "$recipe_folder")"
+    recipe_dir="$PWD/$recipe_folder"
+    if [ -e "$recipe_dir" ]; then
+        echo -e "${RED}Error: Recipe already exists at $recipe_dir${NC}"
+        exit 1
+    fi
+
+    echo -e "${BLUE}Create TJBot recipe${NC}"
+    echo ""
+
+    read -r -p "Display name [$recipe_folder]: " recipe_name
+    recipe_name="${recipe_name:-$recipe_folder}"
+
+    read -r -p "Description: " description
+    if [ -z "$description" ]; then
+        description="TODO: Add description"
+    fi
+
+    read -r -p "Author [TJBot Contributor]: " author
+    if [ -z "$author" ]; then
+        author="TJBot Contributor"
+    fi
+
+    read -r -p "License [Apache-2.0]: " license
+    if [ -z "$license" ]; then
+        license="Apache-2.0"
+    fi
+
+    read -r -p "Language (python/py or typescript/ts): " language
+    case "$language" in
+        python|py)
+            language="python"
+            ;;
+        typescript|ts)
+            language="typescript"
+            ;;
+        *)
+            echo -e "${RED}Error: Language must be 'python', 'py', 'typescript', or 'ts'${NC}"
+            exit 1
+            ;;
+    esac
+
+    echo ""
+    echo "Required capabilities:"
+    listen=$(prompt_yes_no "- listen (microphone + STT) (y/n) [y]: " "y")
+    see=$(prompt_yes_no "- see (camera + vision) (y/n) [y]: " "y")
+    shine=$(prompt_yes_no "- shine (LED) (y/n) [y]: " "y")
+    speak=$(prompt_yes_no "- speak (speaker + TTS) (y/n) [y]: " "y")
+    wave=$(prompt_yes_no "- wave (servo) (y/n) [y]: " "y")
+
+    mkdir -p "$recipe_dir"
+
+    write_recipe_toml "$recipe_dir" "$recipe_name" "$description" "$author" "$license"
+    write_mise_toml "$recipe_dir" "$language"
+    write_language_starters "$recipe_dir" "$recipe_name" "$description" "$author" "$license" "$language" "$listen" "$see" "$shine" "$speak" "$wave"
+    write_recipe_readme "$recipe_dir" "$recipe_name" "$description" "$recipe_folder" "$license" "$listen" "$see" "$shine" "$speak" "$wave" "$language"
+
+    echo ""
+    echo -e "${GREEN}Created recipe at: $recipe_dir${NC}"
+}
+
+# Function to run a hardware test
+test_hardware() {
+    local hardware="$1"
+    local valid_hardware=("camera" "led" "microphone" "servo" "speaker" "stt" "tts")
+
+    if [ -z "$hardware" ]; then
+        echo -e "${BLUE}Available hardware tests:${NC}"
+        echo ""
+        for h in "${valid_hardware[@]}"; do
+            echo "  - $h"
+        done
+        echo ""
+        echo "Run a test with: tjbot test <hardware>"
+        return 0
+    fi
+
+    # Validate hardware argument
+    local valid=false
+    for h in "${valid_hardware[@]}"; do
+        if [ "$hardware" = "$h" ]; then
+            valid=true
+            break
+        fi
+    done
+
+    if [ "$valid" = "false" ]; then
+        echo -e "${RED}Error: Unknown hardware '$hardware'${NC}"
+        echo ""
+        echo -e "${BLUE}Available hardware tests:${NC}"
+        echo ""
+        for h in "${valid_hardware[@]}"; do
+            echo "  - $h"
+        done
+        echo ""
+        return 1
+    fi
+
+    # Check if mise is installed
+    if ! command -v mise &> /dev/null; then
+        echo -e "${RED}Error: mise is not installed${NC}"
+        echo ""
+        echo "Install mise with:"
+        echo "  curl https://mise.run | sh"
+        return 1
+    fi
+
+    # Run the test from tjbot/tests directory via mise tasks
+    echo -e "${GREEN}Running hardware test: $hardware${NC}"
+    cd "$TJBOT_ROOT/tests" || return 1
+
+    # test-* tasks depend on install in tests/mise.toml
+    mise run "test-$hardware"
+}
+
+# Function to run a recipe
+run_recipe() {
+    local recipe_name="$1"
+    local recipe_dir=""
+
+    # Check if mise is installed first
+    if ! command -v mise &> /dev/null; then
+        echo -e "${RED}Error: mise is not installed${NC}"
+        echo ""
+        echo "Install mise with:"
+        echo "  curl https://mise.run | sh"
+        exit 1
+    fi
+
+    # First, try to treat the input as a path
+    if [ "$recipe_name" = "." ]; then
+        recipe_dir="$PWD"
+    elif [ -d "$recipe_name" ]; then
+        # Convert to absolute path
+        recipe_dir="$(cd "$recipe_name" && pwd)"
+    fi
+
+    # If we found a valid directory path, try to validate and run it
+    if [ -n "$recipe_dir" ] && validate_recipe_dir "$recipe_dir"; then
+        echo -e "${GREEN}Running recipe: $recipe_name${NC}"
+        cd "$recipe_dir" || exit 1
+        mise run start
+        return 0
+    fi
+
+    # Try as a built-in recipe name
+    recipe_dir="$TJBOT_ROOT/recipes/$recipe_name"
+    if [ -d "$recipe_dir" ] && validate_recipe_dir "$recipe_dir"; then
+        echo -e "${GREEN}Running recipe: $recipe_name${NC}"
+        cd "$recipe_dir" || exit 1
+        mise run start
+        return 0
+    fi
+
+    # Neither a valid path nor a built-in recipe
+    echo -e "${RED}Error: No recipe found at '$recipe_name'${NC}"
+    echo ""
+    echo "Available built-in recipes:"
+    list_recipes
+    exit 1
+}
+
+# Main command routing
+case "$1" in
+    setup)
+        echo -e "${GREEN}Running TJBot setup...${NC}"
+        cd "$TJBOT_ROOT/bin" || exit 1
+        sudo "$SHELL" ./tjbot_setup
+        ;;
+
+    config)
+        shift
+        cd "$TJBOT_ROOT/config" || exit 1
+
+        # Check if uv is installed
+        if ! command -v uv &> /dev/null; then
+            echo -e "${RED}Error: uv is not installed${NC}"
+            echo ""
+            echo "Install uv with:"
+            echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+            exit 1
+        fi
+
+        # Plain `tjbot config` with no subcommand defaults to the editor.
+        if [ $# -eq 0 ]; then
+            exec uv run config.py edit
+        fi
+
+        exec uv run config.py "$@"
+        ;;
+
+    test)
+        test_hardware "$2"
+        ;;
+
+    run)
+        if [ -z "$2" ]; then
+            list_recipes
+        else
+            run_recipe "$2"
+        fi
+        ;;
+
+    create)
+        create_recipe "$2"
+        ;;
+
+    update)
+        do_update "$2"
+        ;;
+
+    check-updates)
+        echo -e "${BLUE}Checking for TJBot updates...${NC}"
+        current_version=$(get_current_version)
+        latest_version=$(check_latest_release)
+
+        if [ "$latest_version" = "ERROR_NO_NETWORK" ]; then
+            echo -e "${RED}Error: Could not connect to GitHub${NC}"
+            echo "Please check your internet connection and try again."
+            exit 1
+        fi
+
+        if [ "$latest_version" = "ERROR_NO_RELEASES" ]; then
+            echo -e "${YELLOW}No releases available yet${NC}"
+            echo "Check back later for official TJBot releases."
+            exit 0
+        fi
+
+        echo "Current version: $current_version"
+        echo "Latest version:  $latest_version"
+        echo ""
+
+        if [ "$current_version" = "$latest_version" ]; then
+            echo -e "${GREEN}You are already running the latest version!${NC}"
+        else
+            echo -e "${YELLOW}A new version is available.${NC}"
+            read -p "Would you like to update? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                do_update "$latest_version"
+            fi
+        fi
+        ;;
+
+    "")
+        show_usage
+        ;;
+
+    *)
+        echo -e "${RED}Error: Unknown command '$1'${NC}"
+        echo ""
+        show_usage
+        exit 1
+        ;;
+esac

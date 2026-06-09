@@ -2,35 +2,21 @@
   "name": "tests",
   "description": "TJBot hardware tests",
   "version": "3.0.0",
-  "author": "TJBot <https://ibmtjbot.github.io>",
+  "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
   "bugs": {
-    "url": "https://github.com/ibmtjbot/tjbot/issues"
+    "url": "https://github.com/tjbot-ce/tjbot/issues"
   },
   "dependencies": {
-    "readline-sync": "^1.4.10",
-    "tjbot": "file:../../node-tjbotlib"
+    "tjbot-ce": "latest"
   },
-  "devDependencies": {
-    "eslint": "^8.51.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.28.1"
-  },
-  "homepage": "https://github.com/ibmtjbot/tjbot#readme",
+  "homepage": "https://github.com/tjbot-ce/tjbot#readme",
   "keywords": [
     "TJBot"
   ],
   "license": "Apache-2.0",
-  "main": "test.led.js",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ibmtjbot/tjbot.git"
-  },
-  "scripts": {
-    "test-camera": "sudo node test.camera.js",
-    "test-led": "sudo node test.led.js",
-    "test-mic": "sudo node test.mic.js",
-    "test-servo": "sudo node test.servo.js",
-    "test-speaker": "sudo node test.speaker.js"
+    "url": "git+https://github.com/tjbot-ce/tjbot.git"
   }
 }

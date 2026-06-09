@@ -1,0 +1,28 @@
+[tasks.install]
+run = "if [ ! -d node_modules ]; then npm install; else echo 'node_modules exists; skipping npm install'; fi"
+description = "Install recipe dependencies"
+
+[tasks.start]
+depends = ["install"]
+run = "npm start"
+description = "Run recipe"
+
+[tasks.lint]
+description = "Run lint checks"
+run = "npm run lint"
+
+[tasks.lint-fix]
+description = "Run lint auto-fixes"
+run = "npm run lint:fix"
+
+[tasks.format]
+description = "Format code"
+run = "npm run format"
+
+[tasks.format-check]
+description = "Check code formatting"
+run = "npm run format:check"
+
+[tasks.typecheck]
+description = "Run static type checking"
+run = "npm run typecheck"

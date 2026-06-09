@@ -1,0 +1,10 @@
+# Recipe-specific configuration
+# Translate spoken English into another language using Google Cloud Translation.
+
+# Customization 1: Translate to a different language.
+# The language may be specified using either the language name or the language code.
+# For example, you could specify "spanish" or "es" to translate to Spanish.
+# Look at index.ts for a full list of supported languages and their codes
+# in the line beginning with:
+#     const LANGUAGE_NAME_TO_CODE: Record<string, string> = {
+language = 'spanish'

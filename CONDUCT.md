@@ -1,83 +1,85 @@
-An open-source and open community project is one in which participants choose to work together, and in that process experience differences in language, location, nationality, and experience. In such a diverse environment, misunderstandings and disagreements happen, which in most cases can be resolved informally. In rare cases, however, behavior can intimidate, harass, or otherwise disrupt one or more people in the community, which this project will not tolerate.
+# Contributor Covenant 3.0 Code of Conduct
 
-A **Code of Conduct** is useful to define accepted and acceptable behaviors and to promote high standards of professional practice. It also provides a benchmark for self evaluation and acts as a vehicle for better identity of the organization.
+## Our Pledge
 
-This code (**CoC**) applies to any participant in this project's community – developers, participants in meetings, teleconferences, mailing lists, conferences or functions, etc. Note that this code complements rather than replaces legal rights and obligations pertaining to any particular situation.
+We pledge to make our community welcoming, safe, and equitable for all.
 
-## Statement of Intent
+We are committed to fostering an environment that respects and promotes the dignity, rights, and contributions of all individuals, regardless of characteristics including race, ethnicity, caste, color, age, physical characteristics, neurodiversity, disability, sex or gender, gender identity or expression, sexual orientation, language, philosophy or religion, national or social origin, socio-economic position, level of education, or other status. The same privileges of participation are extended to everyone who participates in good faith and in accordance with this Covenant.
 
-This project is committed to maintain a **positive** [work environment](#work-environment). This commitment calls for a workplace where [participants](#participant) at all levels behave according to the rules of the following code. A foundational concept of this code is that we all share responsibility for our work environment.
+## Encouraged Behaviors
 
-## Code
-1. Treat each other with [respect](#respect), professionalism, fairness, and sensitivity to our many differences and strengths, including in situations of high pressure and urgency.
-2. Never [harass](#harassment) or [bully](#workplace-bullying) anyone verbally, physically or [sexually](#sexual-harassment).
-3. Never [discriminate](#discrimination) on the basis of personal characteristics or group membership.
-4. Communicate constructively and avoid [demeaning](#demeaning-behavior) or [insulting](#insulting-behavior) behavior or language.
-5. Seek, accept, and offer objective work criticism, and [acknowledge](#acknowledgement] properly the contributions of others.
-6. Be honest about your own qualifications, and about any circumstances that might lead to conflicts of interest.
-7. Respect the privacy of others and the confidentiality of data you access.
-8. With respect to cultural differences, be conservative in what you do and liberal in what you accept from others, but not to the point of accepting disrespectful, unprofessional or unfair or [unwelcome behavior](#unwelcome-behavior) or [advances](#unwelcome-sexual-advance).
-9. Promote the rules of this Code and take action (especially if you are in a [leadership position](#leadership-position)) to bring the discussion back to a more civil level whenever inappropriate behaviors are observed.
-10. Stay on topic: Make sure that you are posting to the correct channel and avoid off-topic discussions. Remember when you update an issue or respond to an email you are potentially sending to a large number of people.
-11. Step down considerately: Members of every project come and go, and the Hyperledger Project is no different. When you leave or disengage from the project, in whole or in part, we ask that you do so in a way that minimizes disruption to the project. This means you should tell people you are leaving and take the proper steps to ensure that others can pick up where you left off.
+While acknowledging differences in social norms, we all strive to meet our community's expectations for positive behavior. We also understand that our words and actions may be interpreted differently than we intend based on culture, background, or native language.
 
-## Glossary
-#### Demeaning behavior
-is acting in a way that reduces another person's dignity, sense of self-worth or respect within the community.
+With these considerations in mind, we agree to behave mindfully toward each other and act in ways that center our shared values, including:
 
-#### Discrimination
-is the prejudicial treatment of an individual based on criteria such as: physical appearance, race, ethnic origin, genetic differences, national or social origin, name, religion, gender, sexual orientation, family or health situation, pregnancy, disability, age, education, wealth, domicile, political view, morals, employment, or union activity.
+1. Respecting the **purpose of our community**, our activities, and our ways of gathering.
+2. Engaging **kindly and honestly** with others.
+3. Respecting **different viewpoints** and experiences.
+4. **Taking responsibility** for our actions and contributions.
+5. Gracefully giving and accepting **constructive feedback**.
+6. Committing to **repairing harm** when it occurs.
+7. Behaving in other ways that promote and sustain the **well-being of our community**.
 
-#### Insulting behavior
-is treating another person with scorn or disrespect.
+## Restricted Behaviors
 
-#### Acknowledgement
-is a record of the origin(s) and author(s) of a contribution.
+We agree to restrict the following behaviors in our community. Instances, threats, and promotion of these behaviors are violations of this Code of Conduct.
 
-#### Harassment
-is any conduct, verbal or physical, that has the intent or effect of interfering with an individual, or that creates an intimidating, hostile, or offensive environment.
+1. **Harassment.** Violating explicitly expressed boundaries or engaging in unnecessary personal attention after any clear request to stop.
+2. **Character attacks.** Making insulting, demeaning, or pejorative comments directed at a community member or group of people.
+3. **Stereotyping or discrimination.** Characterizing anyone’s personality or behavior on the basis of immutable identities or traits.
+4. **Sexualization.** Behaving in a way that would generally be considered inappropriately intimate in the context or purpose of the community.
+5. **Violating confidentiality**. Sharing or acting on someone's personal or private information without their permission.
+6. **Endangerment.** Causing, encouraging, or threatening violence or other harm toward any person or group.
+7. Behaving in other ways that **threaten the well-being** of our community.
 
-#### Leadership position
-includes group Chairs, project maintainers, staff members, and Board members.
+### Other Restrictions
 
-#### Participant
-includes the following persons:
-* Developers
-* Anyone from the Public partaking in this project's work environment (e.g. contribute code, comment on our code or specs, email us, attend our conferences, functions, etc)
+1. **Misleading identity.** Impersonating someone else for any reason, or pretending to be someone else to evade enforcement actions.
+2. **Failing to credit sources.** Not properly crediting the sources of content you contribute.
+3. **Promotional materials**. Sharing marketing or other commercial content in a way that is outside the norms of the community.
+4. **Irresponsible communication.** Failing to responsibly present content which includes, links or describes any other restricted behaviors.
 
-#### Respect
-is the genuine consideration you have for someone (if only because of their status as participant in Hyperledger Project, like yourself), and that you show by treating them in a polite and kind way.
+## Reporting an Issue
 
-#### Sexual harassment
-includes visual displays of degrading sexual images, sexually suggestive conduct, offensive remarks of a sexual nature, requests for sexual favors, unwelcome physical contact, and sexual assault.
+Tensions can occur between community members even when they are trying their best to collaborate. Not every conflict represents a code of conduct violation, and this Code of Conduct reinforces encouraged behaviors and norms that can help avoid conflicts and minimize harm.
 
-#### Unwelcome behavior
-Hard to define? Some questions to ask yourself are:
-* how would I feel if I were in the position of the recipient?
-* would my spouse, parent, child, sibling or friend like to be treated this way?
-* would I like an account of my behavior published in the organization's newsletter?
-* could my behavior offend or hurt other members of the work group?
-* could someone misinterpret my behavior as intentionally harmful or harassing?
-* would I treat my boss or a person I admire at work like that ?
+When an incident does occur, it is important to report it promptly. To report a possible violation, **email <tjbot-community-violation@jweisz.org>.**
 
-_Summary_: if you are unsure whether something might be welcome or unwelcome, don't do it.
+Community Moderators take reports of violations seriously and will make every effort to respond in a timely manner. They will investigate all reports of code of conduct violations, reviewing messages, logs, and recordings, or interviewing witnesses and other participants. Community Moderators will keep investigation and enforcement actions as transparent as possible while prioritizing safety and confidentiality. In order to honor these values, enforcement actions are carried out in private with the involved parties, but communicating to the whole community may be part of a mutually agreed upon resolution.
 
-#### Unwelcome sexual advance
-includes requests for sexual favors, and other verbal or physical conduct of a sexual nature, where:
-* submission to such conduct is made either explicitly or implicitly a term or condition of an individual's employment,
-* submission to or rejection of such conduct by an individual is used as a basis for employment decisions affecting the individual,
-* such conduct has the purpose or effect of unreasonably interfering with an individual's work performance or creating an intimidating hostile or offensive working environment.
+## Addressing and Repairing Harm
 
-#### Workplace Bullying
-is a tendency of individuals or groups to use persistent aggressive or unreasonable behavior (e.g. verbal or written abuse, offensive conduct or any interference which undermines or impedes work) against a co-worker or any professional relations.
+****
 
-#### Work Environment
-is the set of all available means of collaboration, including, but not limited to messages to mailing lists, private correspondence, Web pages, chat channels, phone and video teleconferences, and any kind of face-to-face meetings or discussions.
+If an investigation by the Community Moderators finds that this Code of Conduct has been violated, the following enforcement ladder may be used to determine how best to repair harm, based on the incident's impact on the individuals involved and the community as a whole. Depending on the severity of a violation, lower rungs on the ladder may be skipped.
 
-## Incident Procedure
+1) Warning
+   1) Event: A violation involving a single incident or series of incidents.
+   2) Consequence: A private, written warning from the Community Moderators.
+   3) Repair: Examples of repair include a private written apology, acknowledgement of responsibility, and seeking clarification on expectations.
+2) Temporarily Limited Activities
+   1) Event: A repeated incidence of a violation that previously resulted in a warning, or the first incidence of a more serious violation.
+   2) Consequence: A private, written warning with a time-limited cooldown period designed to underscore the seriousness of the situation and give the community members involved time to process the incident. The cooldown period may be limited to particular communication channels or interactions with particular community members.
+   3) Repair: Examples of repair may include making an apology, using the cooldown period to reflect on actions and impact, and being thoughtful about re-entering community spaces after the period is over.
+3) Temporary Suspension
+   1) Event: A pattern of repeated violation which the Community Moderators have tried to address with warnings, or a single serious violation.
+   2) Consequence: A private written warning with conditions for return from suspension. In general, temporary suspensions give the person being suspended time to reflect upon their behavior and possible corrective actions.
+   3) Repair: Examples of repair include respecting the spirit of the suspension, meeting the specified conditions for return, and being thoughtful about how to reintegrate with the community when the suspension is lifted.
+4) Permanent Ban
+   1) Event: A pattern of repeated code of conduct violations that other steps on the ladder have failed to resolve, or a violation so serious that the Community Moderators determine there is no way to keep the community safe with this person as a member.
+   2) Consequence: Access to all community spaces, tools, and communication channels is removed. In general, permanent bans should be rarely used, should have strong reasoning behind them, and should only be resorted to if working through other remedies has failed to change the behavior.
+   3) Repair: There is no possible repair in cases of this severity.
 
-To report incidents or to appeal reports of incidents, send email to \[TODO] create email. Please include any available relevant information, including links to any publicly accessible material relating to the matter. Every effort will be taken to ensure a safe and collegial environment in which to collaborate on matters relating to the Project. In order to protect the community, the Project reserves the right to take appropriate action, potentially including the removal of an individual from any and all participation in the project. The Project will work towards an equitable resolution in the event of a misunderstanding.
+This enforcement ladder is intended as a guideline. It does not limit the ability of Community Managers to use their discretion and judgment, in keeping with the best interests of our community.
 
-## Credits
+## Scope
 
-This code is based on the [Hyperledger Project's CoC](https://github.com/hyperledger/hyperledger/wiki/Hyperledger-Project-Code-of-Conduct), [W3C’s Code of Ethics and Professional Conduct](https://www.w3.org/Consortium/cepc) with some additions from the [Cloud Foundry](https://www.cloudfoundry.org/)‘s Code of Conduct.
+This Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public or other spaces. Examples of representing our community include using an official email address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
+
+## Attribution
+
+This Code of Conduct is adapted from the Contributor Covenant, version 3.0, permanently available at [https://www.contributor-covenant.org/version/3/0/](https://www.contributor-covenant.org/version/3/0/).
+
+Contributor Covenant is stewarded by the Organization for Ethical Source and licensed under CC BY-SA 4.0. To view a copy of this license, visit [https://creativecommons.org/licenses/by-sa/4.0/](https://creativecommons.org/licenses/by-sa/4.0/)
+
+For answers to common questions about Contributor Covenant, see the FAQ at [https://www.contributor-covenant.org/faq](https://www.contributor-covenant.org/faq). Translations are provided at [https://www.contributor-covenant.org/translations](https://www.contributor-covenant.org/translations). Additional enforcement and community guideline resources can be found at [https://www.contributor-covenant.org/resources](https://www.contributor-covenant.org/resources). The enforcement ladder was inspired by the work of [Mozilla’s code of conduct team](https://github.com/mozilla/inclusion).

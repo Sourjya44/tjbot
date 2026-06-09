@@ -1,12 +1,16 @@
+# Contributing to TJBot
+
 ## Issues
-If you encounter a problem with TJBot, you are welcome to submit an issue. Before that, please search for similar issues. It's possible somebody has encountered this issue already.
+
+If you encounter a problem with TJBot, please submit an issue. Before that, please search for similar issues. It's possible somebody has encountered this issue already.
 
 ## Pull Requests
+
 If you want to contribute to the repository, please fork the project and create a pull request. Your commit request needs to be in the following format:
 
 ```
-	(#idOfIssue) Simple description
-	More details. This line is optional.
+    (#idOfIssue) Simple description
+    More details. This line is optional.
 ```
 
 If there is no issue related to your commit, create one first. It will be better to understand the goal of your work. After your Pull Request (PR) has been reviewed and signed off, a maintainer will merge it into the master branch.
@@ -19,6 +23,4 @@ We simply ask that when submitting a pull request, the developer must include a 
 
 Here is an example Signed-off-by line, which indicates that the submitter accepts the DCO:
 
-```
-Signed-off-by: John Doe <john.doe@hisdomain.com>
-```
+> Signed-off-by: John Doe <john.doe@hisdomain.com>

@@ -1,20 +1,42 @@
-# TJBot Hardware Tests
-These tests are provided to help you ensure your TJBot's hardware is functioning correctly. 
+# TJBot Hardware & Software Tests
 
-### Prerequisite: install dependencies
-Before running any hardware tests, first install their dependencies. Run this command from within the `tjbot/tests` directory.
+These tests are provided to help you ensure your TJBot's hardware & software are functioning correctly.
 
-```
-$ npm install
+## Running Tests
+
+TJBot's tests are run via the `tjbot` launcher, which delegates to node-tjbotlib's live test suite.
+
+### List available tests
+
+```sh
+tjbot test
 ```
 
-### Running hardware tests
-From the `tjbot/tests` directory, you can run each of the hardware tests using `npm run-script`. Each test is interactive and will ask you whether or not TJBot performed a certain action. If you say "N", the test will fail.
+### Run a specific hardware test
 
+```sh
+tjbot test camera
+tjbot test led
+tjbot test microphone
+tjbot test servo
+tjbot test stt
+tjbot test speaker
+tjbot test tts
+tjbot test vision
 ```
-$ npm run-script test-camera
-$ npm run-script test-led
-$ npm run-script test-mic
-$ npm run-script test-servo
-$ npm run-script test-speaker
+
+## How It Works
+
+- Tests are TypeScript-based and sourced from `node-tjbotlib/tests/live/`
+- Dependencies are automatically installed on first run
+- Each test is interactive and will prompt you to verify that TJBot performed the expected action
+
+## Running Tests Without `tjbot`
+
+You can run the hardware tests from this directory directly using `mise`:
+
+```sh
+mise run <test-name>
 ```
+
+> 💡 `mise` will automatically install the latest version of `node-tjbotlib`, which is where the hardware tests are kept.

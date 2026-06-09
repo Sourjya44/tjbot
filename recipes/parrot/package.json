@@ -1,0 +1,32 @@
+{
+  "name": "parrot",
+  "version": "3.0.0",
+  "description": "TJBot pretends it's a parrot!",
+  "license": "Apache-2.0",
+  "author": "TJBot Community Edition <https://tjbot-ce.github.io>",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "format": "prettier --write \"./**/*.{js,ts}\"",
+    "format:check": "prettier --check \"./**/*.{js,ts}\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "tjbot-ce": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "jiti": "^2.7.0",
+    "prettier": "^3.8.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  }
+}
