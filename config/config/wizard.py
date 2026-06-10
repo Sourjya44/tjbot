@@ -37,8 +37,8 @@ from config.schema_loader import ConfigSchemaError, TJBotConfigSchema, load_conf
 console = Console()
 
 DEFAULT_TOML_URL = (
-    'https://raw.githubusercontent.com/tjbot-ce/node-tjbotlib'
-    '/refs/heads/main/src/config/tjbot.default.toml'
+    'https://raw.githubusercontent.com/tjbot-ce/tjbot-config'
+    '/refs/heads/main/tjbot.default.toml'
 )
 
 
