@@ -17,9 +17,95 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+shopt -s expand_aliases
+
 # ============================================================================
-# Helper function to check if a command exists for a given user
+# Setup ANSI color codes for pretty output, but only if we're running in a
+# terminal
 # ============================================================================
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    ANSI_RESET=$'\033[0m'
+    ANSI_BOLD=$'\033[1m'
+    ANSI_DIM=$'\033[2m'
+    ANSI_CYAN=$'\033[36m'
+    ANSI_GREEN=$'\033[32m'
+    ANSI_YELLOW=$'\033[33m'
+    ANSI_RED=$'\033[31m'
+    ANSI_BLUE=$'\033[34m'
+    ANSI_MAGENTA=$'\033[35m'
+else
+    ANSI_RESET=""
+    ANSI_BOLD=""
+    ANSI_DIM=""
+    ANSI_CYAN=""
+    ANSI_GREEN=""
+    ANSI_YELLOW=""
+    ANSI_RED=""
+    ANSI_BLUE=""
+    ANSI_MAGENTA=""
+fi
+
+export ANSI_RESET ANSI_BOLD ANSI_DIM ANSI_CYAN ANSI_GREEN ANSI_YELLOW ANSI_RED ANSI_BLUE ANSI_MAGENTA
+
+# ============================================================================
+# Helper functions
+# ============================================================================
+setup_echo() {
+    if [ "$#" -eq 0 ]; then
+        builtin printf '\n'
+        return
+    fi
+
+    builtin printf '%b%s%b\n' "${ANSI_CYAN}" "$*" "${ANSI_RESET}"
+}
+
+alias echo='setup_echo'
+
+setup_section() {
+    local label="$1"
+    local display_label="${label//-/ }"
+    local width=80
+    local text=" ${display_label} "
+    local text_length=${#text}
+    local remaining=$((width - text_length))
+    local left_padding=0
+    local right_padding=0
+
+    if [ "$remaining" -gt 0 ]; then
+        left_padding=$((remaining / 2))
+        right_padding=$((remaining - left_padding))
+    fi
+
+    printf '%b' "${ANSI_BOLD}${ANSI_MAGENTA}"
+    printf '%*s' "$left_padding" '' | tr ' ' '-'
+    printf '%s' "$text"
+    printf '%*s%b\n' "$right_padding" '' "${ANSI_RESET}" | tr ' ' '-'
+}
+
+setup_command() {
+    printf '%b→ %s%b\n' "${ANSI_BOLD}${ANSI_CYAN}" "$*" "${ANSI_RESET}"
+}
+
+setup_stream() {
+    local color="$1"
+    local prefix="$2"
+    local line
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%b%s%b %s\n' "$color" "$prefix" "${ANSI_RESET}" "$line"
+    done
+}
+
+export -f setup_stream
+
+run_logged_cmd() {
+    local label="$1"
+    shift
+
+    setup_command "$label"
+    "$@" > >(setup_stream "${ANSI_DIM}${ANSI_GREEN}" "  |") 2> >(setup_stream "${ANSI_DIM}${ANSI_RED}" "  !")
+}
+
 command_exists() {
     local user="$1"
     local cmd="$2"
@@ -41,7 +127,83 @@ run_with_uv() {
 }
 
 # ============================================================================
-# Make sure this is run as root
+# Setup completion artwork!
+# ============================================================================
+render_completion_art() {
+    local sleep_time="$1"
+    local color_mode="${2:-none}"
+    local art_color=""
+    local i=0
+    local line
+    local -a rainbow_colors=(
+        "${ANSI_RED}"
+        "${ANSI_YELLOW}"
+        "${ANSI_GREEN}"
+        "${ANSI_CYAN}"
+        "${ANSI_BLUE}"
+        "${ANSI_MAGENTA}"
+    )
+    local -a lines=(
+        ""
+        ""
+        "                           .yNNs\`                           "
+        "                           :hhhh-                           "
+        "/ssssssssssssssssssssssssssssssssssssssssssssssssssssssssss+"
+        "yNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMNmmmNMMMMMMMMMMMMMMMMMMMMMMNmmmMMMMMMMMMMMMMMy"
+        "yMMMMMMMMMMMNd/\`\`\`.+NNMMMMMMMMMMMMMMMMNm+.\` \`/dNMMMMMMMMMMMy"
+        "yMMMMMMMMMMMNo     \`hMMMMMMMMMMMMMMMMMMy\`     oNMMMMMMMMMMMy"
+        "yMMMMMMMMMMMNm+.\`\`-sNMMMMMMMMMMMMMMMMMNNs-\`\`.+mNMMMMMMMMMMMy"
+        "yMMMMMMMMMMMMMMNmmMMMMMMMMMMMMMMMMMMMMMMMMmmNMMMMMMMMMMMMMMy"
+        "yNNNNNMMMMMMMMMMMMNNNNNNMMNNNNNNNNNNMMMMMMMMMMMMMMMMMMMNNNMy"
+        "-::::::::::::::::::::::::::::::::::::::::::::::::::::::::::-"
+        "                                                            "
+        "                     \`\`\`\`\`\`\`....--::::////++++ooossyyhhhhh/"
+        "//++ossssssyyyyhhddmmmmmmmmmmmmNNNNNMMNNNNNNMMMMMMMMMMMMMNNo"
+        "dMNMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
+        "sMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMd"
+        "oNMMMMMMMMMMMMMMMMNNNNNNNNMMMMMMNNNNNmmmmmmmmmddhhhhyyyyssss"
+        "+Nmmmddhhhhyyyyssoo++++/////:::---....\`\`\`\`\`\`\`\`        "
+        ""
+        "-------------------------------------------------------------------"
+    )
+
+    case "$color_mode" in
+        red) art_color="${ANSI_RED}" ;;
+        yellow) art_color="${ANSI_YELLOW}" ;;
+        green) art_color="${ANSI_GREEN}" ;;
+        cyan) art_color="${ANSI_CYAN}" ;;
+        blue) art_color="${ANSI_BLUE}" ;;
+        magenta) art_color="${ANSI_MAGENTA}" ;;
+        rainbow) art_color="" ;;
+        *) art_color="" ;;
+    esac
+
+    for line in "${lines[@]}"; do
+        if [ "$color_mode" = "rainbow" ]; then
+            builtin printf '%b%s%b\n' "${rainbow_colors[$((i % ${#rainbow_colors[@]}))]}" "$line" "${ANSI_RESET}"
+            i=$((i + 1))
+        else
+            builtin printf '%b%s%b\n' "$art_color" "$line" "${ANSI_RESET}"
+        fi
+        sleep "$sleep_time"
+    done
+}
+
+# ============================================================================
+# Make sure this script is run as root
 # ============================================================================
 user=$(id -u)
 if [ "$user" -ne 0 ]; then
@@ -102,7 +264,7 @@ echo
 # Test CPU architecture
 #   ARMv6 is not supported (RPi 1, Pi Zero, Compute Module 1)
 # ============================================================================
-echo ""
+setup_section "pre-install checks"
 
 CPUARCH=$(lscpu | grep Arch | cut -d ':' -f2 | awk '{$1=$1};1')
 if [ "$CPUARCH" = 'armv6l' ];
@@ -118,8 +280,6 @@ fi
 # Test Raspbian version
 #   Raspbian 12 (Bookworm) or later is required
 # ============================================================================
-echo ""
-
 RASPBIAN_VERSION_ID=$(grep '^VERSION_ID=' /etc/os-release | cut -d '"' -f 2)
 RASPBIAN_CODENAME=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d '=' -f 2)
 if [ "$RASPBIAN_VERSION_ID" -lt 12 ]; then
@@ -141,7 +301,7 @@ fi
 # ============================================================================
 # Install additional apt packages
 # ============================================================================
-echo ""
+setup_section "install additional apt packages"
 
 PACKAGES=(
     libgpiod-dev
@@ -149,28 +309,25 @@ PACKAGES=(
     rpicam-apps-lite
 )
 
-echo "Updating apt repositories [apt-get update]"
-apt-get update
-
-echo "Installing additional software packages: ${PACKAGES[*]}"
-apt-get install -y "${PACKAGES[@]}"
+run_logged_cmd "apt-get update" apt-get update
+run_logged_cmd "apt-get install -y ${PACKAGES[*]}" apt-get install -y "${PACKAGES[@]}"
 
 # ============================================================================
 # Capture target user and home directory
 # ============================================================================
 TARGET_USER=${SUDO_USER:-$USER}
-TARGET_HOME=$(eval echo "~$TARGET_USER")
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 TJBOT_DIR="$TARGET_HOME/.tjbot/tjbot"
 
 # ============================================================================
 # Install mise
 # ============================================================================
-echo ""
+setup_section "install mise"
 echo "Installing mise..."
 
 if ! command_exists "$TARGET_USER" "mise"; then
     echo "Installing mise for user $TARGET_USER..."
-    sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://mise.run | sh'
+    run_logged_cmd "install mise" sudo -u "$TARGET_USER" sh -lc 'curl -sLSf https://mise.run | sh'
     echo "✓ mise installed successfully"
 else
     echo "✓ mise is already installed for $TARGET_USER"
@@ -179,12 +336,12 @@ fi
 # ============================================================================
 # Install uv
 # ============================================================================
-echo ""
+setup_section "install uv"
 echo "Installing uv..."
 
 if ! command_exists "$TARGET_USER" "uv"; then
     echo "Installing uv for user $TARGET_USER..."
-    sudo -H -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
+    run_logged_cmd "install uv" sudo -H -u "$TARGET_USER" sh -lc 'curl -sLSf https://astral.sh/uv/install.sh | sh'
 fi
 
 # Best-effort status check for uv availability in target user's shell.
@@ -198,7 +355,8 @@ fi
 # ============================================================================
 # Install Node.js
 # ============================================================================
-echo ""
+setup_section "install node.js"
+echo "Installing Node.js..."
 
 # Get the first version in the list where the 10th column (LTS) is not "-"
 LATEST_NODE_LTS_VERSION=$(curl -sLSf https://nodejs.org/download/release/index.tab | \
@@ -231,30 +389,30 @@ else
 fi
 
 if $NEED_NODE_INSTALL; then
-    curl -sLSf https://deb.nodesource.com/setup_"${LATEST_NODE_LTS_VERSION}".x | sudo -E bash -
-    apt install nodejs -y
+    run_logged_cmd "configure NodeSource repository" bash -lc "curl -sLSf https://deb.nodesource.com/setup_${LATEST_NODE_LTS_VERSION}.x | sudo -E bash -"
+    run_logged_cmd "apt install nodejs -y" apt install nodejs -y
 fi
 
 # ============================================================================
 # Clone TJBot repository
 # ============================================================================
-echo ""
+setup_section "clone TJBot repository"
 
 if [ ! -d "$TJBOT_DIR" ]; then
     echo "Cloning TJBot project to $TJBOT_DIR"
-    sudo -u "$TARGET_USER" git clone https://github.com/tjbot-ce/tjbot.git "$TJBOT_DIR"
+    run_logged_cmd "git clone tjbot" sudo -u "$TARGET_USER" git clone https://github.com/tjbot-ce/tjbot.git "$TJBOT_DIR"
 else
     echo "TJBot project already exists in $TJBOT_DIR, pulling latest changes"
-    sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" pull
+    run_logged_cmd "git pull tjbot" sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" pull
 fi
 
 echo "Initializing TJBot submodules"
-sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" submodule update --init --recursive
+run_logged_cmd "git submodule update" sudo -u "$TARGET_USER" git -C "$TJBOT_DIR" submodule update --init --recursive
 
 # ============================================================================
 # Add tjbot/bin to $PATH
 # ============================================================================
-echo ""
+setup_section "add TJBot to \$PATH [in ~/.profile]"
 
 PROFILE_FILE="$TARGET_HOME/.profile"
 if ! grep -Fq "$TJBOT_DIR/bin" "$PROFILE_FILE" 2>/dev/null; then
@@ -269,7 +427,7 @@ fi
 # ============================================================================
 RPI_MODEL=$(grep "^Model" /proc/cpuinfo | cut -d ':' -f2 | xargs)
 if [[ "$RPI_MODEL" == *"Raspberry Pi 3"* ]]; then
-    echo ""
+    setup_section "[RPi 3] blacklist kernel audio modules"
     echo "On Raspberry Pi 3 models, there is a known conflict between the LED "
     echo "and the built-in audio jack. In order for the LED to work, we need to"
     echo "disable certain kernel modules to avoid this conflict. If you have "
@@ -302,92 +460,25 @@ fi
 # ============================================================================
 # Create tjbot.toml configuration file
 # ============================================================================
-echo ""
+setup_section "configure TJBot"
 echo "Configuring TJBot hardware & software settings..."
 
 cd "$TJBOT_DIR/config" || (echo "🛑 Failed to locate directory $TJBOT_DIR/config, please check your tjbot installation" && exit 1)
-run_with_uv "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for tjbot config tool, please check your tjbot installation and uv setup" && exit 1)
-run_with_uv "$TARGET_USER" uv run config init || (echo "🛑 Failed to create default tjbot config, please check your tjbot installation and uv setup" && exit 1)
+run_logged_cmd "uv sync --quiet" run_with_uv "$TARGET_USER" uv sync --quiet || (echo "🛑 Failed to sync dependencies for tjbot config tool, please check your tjbot installation and uv setup" && exit 1)
+if [ ! -f "$TARGET_HOME/.tjbot/tjbot.toml" ]; then
+    run_logged_cmd "uv run config init" run_with_uv "$TARGET_USER" uv run config init || (echo "🛑 Failed to create default tjbot config, please check your tjbot installation and uv setup" && exit 1)
+fi
 
 # ============================================================================
 # Installation complete!
 # ============================================================================
-sleep_time=0.1
-echo ""
-echo ""
-echo "                           .yNNs\`                           "
-sleep $sleep_time
-echo "                           :hhhh-                           "
-sleep $sleep_time
-echo "/ssssssssssssssssssssssssssssssssssssssssssssssssssssssssss+"
-sleep $sleep_time
-echo "yNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMNmmmNMMMMMMMMMMMMMMMMMMMMMMNmmmMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMNd/\`\`\`.+NNMMMMMMMMMMMMMMMMNm+.\` \`/dNMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMNo     \`hMMMMMMMMMMMMMMMMMMy\`     oNMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMNm+.\`\`-sNMMMMMMMMMMMMMMMMMNNs-\`\`.+mNMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yMMMMMMMMMMMMMMNmmMMMMMMMMMMMMMMMMMMMMMMMMmmNMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "yNNNNNMMMMMMMMMMMMNNNNNNMMNNNNNNNNNNMMMMMMMMMMMMMMMMMMMNNNMy"
-sleep $sleep_time
-echo "-::::::::::::::::::::::::::::::::::::::::::::::::::::::::::-"
-sleep $sleep_time
-echo "                                                            "
-sleep $sleep_time
-echo "                     \`\`\`\`\`\`\`\`....--::::////++++ooossyyhhhhh/"
-sleep $sleep_time
-echo "//++ossssssyyyyhhddmmmmmmmmmmmmNNNNNMMNNNNNNMMMMMMMMMMMMMNNo"
-sleep $sleep_time
-echo "dMNMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMy"
-sleep $sleep_time
-echo "sMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMd"
-sleep $sleep_time
-echo "oNMMMMMMMMMMMMMMMMNNNNNNNNMMMMMMNNNNNmmmmmmmmmddhhhhyyyyssss"
-sleep $sleep_time
-echo "+Nmmmddhhhhyyyyssoo++++/////:::---....\`\`\`\`\`\`\`\`        "
-sleep $sleep_time
-echo ""
-sleep $sleep_time
-echo "-------------------------------------------------------------------"
-sleep $sleep_time
-echo "Setup complete. Your Raspberry Pi is now set up as a TJBot! 🤖"
-sleep $sleep_time
-echo "-------------------------------------------------------------------"
-echo ""
+render_completion_art 0.05 rainbow
 
 # ============================================================================
 # Reboot
 # ============================================================================
-echo ""
+setup_section "setup complete"
+echo "Setup complete. Your Raspberry Pi is now set up as a TJBot! 🤖"
 read -r -p "We recommend rebooting for all changes to take effect. Reboot? [Y/n] " choice </dev/tty
 case "$choice" in
     "" | "y" | "Y")
